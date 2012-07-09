@@ -364,20 +364,21 @@ window.whiteboard = (function(){
       },
 
       initializeEventListeners: function() {
-        var actions = this.element.getElementsByClassName('whiteboard-actionable');
+        var actionableElement, action, trigger, i,
+            actions = this.element.getElementsByClassName('whiteboard-actionable');
 
-        for (var i = actions.length - 1; i >= 0; i--) {
-          var actionableElement = actions[i];
+        for (i = actions.length - 1; i >= 0; i--) {
+          actionableElement = actions[i];
 
           //supress all actionable ondragstarts - rage against ondragstart
           actionableElement.ondragstart = function(){return false;};
 
-          var action = actionableElement.attributes.getNamedItem('data-action').value;
-          var trigger = actionableElement.attributes.getNamedItem('data-trigger').value;
+          action = actionableElement.attributes.getNamedItem('data-action').value;
+          trigger = actionableElement.attributes.getNamedItem('data-trigger').value;
           _.addEvent(actionableElement, trigger, _startStrokeEvent);
-        };
+        }
+
         _.addEvent(this.element, 'mousedown', _.strokeActions.focus.start);
-        _
       }
     };
 
