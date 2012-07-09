@@ -28,6 +28,27 @@ HTMLElement.prototype.applyTransformation = HTMLElement.prototype.applyTransform
     this.style.msTransform = transformation;
 }
 
+/**
+ * Checks to see if the element is contained in another of a certain class
+ *
+ * Because of the tree traversal, this is best used on nodes close to the root.
+ *  (which is how we use it below)
+ *
+ * @param {Element} element
+ * @param {string} className
+ * @return {boolean}
+ */
+
+HTMLElement.prototype.isContainedInElementOfClass = HTMLElement.prototype.isContainedInElementOfClass || 
+  function(className) {
+    var probe = this;
+    while (!probe.hasClass(className) && element !== _htmlTag && probe.parentElement) {
+      probe = probe.parentElement;
+    }
+    if (probe.hasClass(className)) return true;
+    else return false;
+  };
+
 
 window.whiteboard = (function(){
   /* ------------------------------- */
@@ -104,14 +125,6 @@ window.whiteboard = (function(){
     };
   };
 
-  function _deltaY() {
-    return _mouseY - _previousY;
-  };
-
-  function _deltaX() {
-    return _mouseX - _previousX;
-  }
-
   /**
    * takes the event and returns the keycode
    *
@@ -139,29 +152,14 @@ window.whiteboard = (function(){
 
   function _paintStroke(e) {
     if (_activeBrush && !e.defaultPrevented &&
-        !_isContainedInElementOfClass(e.target, 'stroke') && 
-        !_isContainedInElementOfClass(e.target, 'toolbox')) {
+        !e.target.isContainedInElementOfClass('stroke') && 
+        !e.target.isContainedInElementOfClass('toolbox')) {
       var stroke = _activeBrush.createStroke();
       stroke.paint();
 
       if (!e.shiftKey)
         _activeBrush = null;
     }
-  };
-
-  /**
-   * Checks to see if the element is contained in another of a certain class
-   *
-   * @param {Element} element
-   * @param {string} className
-   * @return {boolean}
-   */
-  function _isContainedInElementOfClass(element, className) {
-    while (!element.hasClass(className) && element !== _htmlTag && element.parentElement) {
-      element = element.parentElement;
-    }
-    if (element.hasClass(className)) return true;
-    else return false;
   };
 
   function _toggleBrushComposition(e) {
@@ -428,7 +426,7 @@ window.whiteboard = (function(){
         },
 
         finish: function(event) {
-          if (!_isContainedInElementOfClass(event.target, 'whiteboard-focused')) {
+          if (!event.target.isContainedInElementOfClass('whiteboard-focused')) {
 
             var stroke = _focusedStroke();
             stroke.removeClass('whiteboard-focused');
@@ -518,7 +516,7 @@ window.whiteboard = (function(){
         },
 
         finish: function(event) {
-          if (!_isContainedInElementOfClass(event.target, 'editable')) {
+          if (!event.target.isContainedInElementOfClass('editable')) {
             var editableText = document.getElementById('whiteboard-beingEdited');
             editableText.contentEditable = "false";
             editableText.id = "";
