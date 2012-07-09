@@ -387,8 +387,7 @@ window.whiteboard = (function(){
 
       onpaint: {
         focusEditableText: function(stroke) {
-          var editableText = stroke.element.getElementsByClassName('editable')[0];
-          _fireEvent(editableText, 'mousedown');
+          _fireEvent(stroke.element.getElementsByClassName('editable')[0], 'mousedown');
         }
       },
 
