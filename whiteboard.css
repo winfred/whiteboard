@@ -1,0 +1,70 @@
+.brush {
+  display: none;
+}
+
+.resizable-pad {
+  
+}
+
+.stroke-content {
+  padding: 5px;
+  border: 5px transparent solid;
+  z-index: 1000;
+}
+
+.stroke-controls {
+  display: none;
+  z-index: 1001;
+}
+
+.stroke-controls-right {
+  float: right;
+}
+
+.stroke-controls-top {
+  position: absolute;
+  width: 90%;
+  padding: 5px 10px;
+  margin: 0 auto;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.whiteboard-focused .stroke-content {
+  border: 5px #aaa dotted;
+}
+
+.whiteboard-focused .stroke-controls {
+  display: inherit;
+}
+
+.disableSelection::-moz-selection, .disableSelection::selection {
+  background-color:Transparent;
+  color:#000;
+}
+
+.whiteboard-focused a[data-action=move]{
+
+}
+
+.whiteboard-focused a[data-action=decreaseFontSize]{
+
+}
+
+.whiteboard-focused a[data-action=increaseFontSize]{
+
+}
+
+.uml-class {
+  background: white solid;
+  border: 2px #999 solid;
+  padding: 10px;
+}
+
+.uml-class-header {
+  border-bottom: 5px #999 solid;
+}
+
+.uml-class-attributes {
+  border-bottom: 2px #999 solid;
+}

@@ -1,0 +1,84 @@
+<html>
+<head>
+  <title></title>
+  <link rel="stylesheet" type="text/css" href="whiteboard.css">
+  <script type="text/javascript" src="whiteboard.js"></script>
+</head>
+<body>
+
+  <div class="container">
+    <div class="toolbox">
+      <ul>
+        <li> <a href="#" class="tool" data-brush-name="uml-class">UML Class</a> </li>
+        <li><a href="#" class="tool" data-brush-name="text">Text</a></li>
+        <li><a href="#" class="tool" data-brush-name="arrow">Arrow</a></li>
+      </ul>
+    </div>
+    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
+    tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
+    quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo
+    consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse
+    cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non
+    proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+  </div>
+  <div class="brushes">
+    <div class="brush" data-brush-name="uml-class">
+      <div class="stroke-content">
+        <div class="uml-class">
+          <div class="uml-class-header">
+            <h3 class="whiteboard-actionable editable" data-action="editText" data-trigger="mousedown">Class Name</h3>
+          </div>
+          <div class="uml-class-attributes">
+            <p class="whiteboard-actionable editable" data-action="editText" data-trigger="mousedown">
+              - attribute1 <br />
+              + attribute2
+            </p>
+          </div>
+          <div class="uml-class-methods">
+            <p class="whiteboard-actionable editable" data-action="editText" data-trigger="mousedown">
+              - method1 <br />
+              + method2
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="stroke-controls stroke-controls-top">
+          <a href="#" class="whiteboard-actionable" data-action="move" data-trigger="mousedown">Drag Me</a>
+      </div>
+    </div>
+    <div class="brush" data-brush-name="text" data-onpaint="focusEditableText">
+      <div class="stroke-controls stroke-controls-top">
+        <a href="#" class="whiteboard-actionable" data-action="increaseFontSize" data-trigger="mousedown">+</a>
+        <a href="#" class="whiteboard-actionable" data-action="decreaseFontSize" data-trigger="mousedown">-</a>
+        <div class="stroke-controls-right">
+          <a href="#" class="whiteboard-actionable" data-action="rotate" data-trigger="mousedown">Ω</a>
+        </div>
+      </div>
+      <div class="whiteboard-actionable resizeable-pad" data-action="resize" data-trigger="mousedown">
+        <div class="stroke-content" data-default-fontsize="16">
+          <h3 class="whiteboard-actionable editable" data-action="editText" data-trigger="mousedown">Write here...</h3>
+        </div>
+      </div>
+      <div class="stroke-controls stroke-bottom">
+        <a href="#" class="whiteboard-actionable" data-action="move" data-trigger="mousedown">Drag Me</a>
+      </div>
+    </div>
+    <div class="brush" data-brush-name="arrow">
+      <div class="whiteboard-actionable resizeable-pad" data-action="resize" data-trigger="mousedown">
+        <div class="stroke-content">
+          <img src="http://upload.wikimedia.org/wikipedia/commons/7/71/Arrow_east.svg" width="100"/>
+        </div>
+      </div>
+      <div class="stroke-controls">
+          <a href="#" class="whiteboard-actionable" data-action="move" data-trigger="mousedown">Drag Me</a>
+          <div class="stroke-controls-right">
+            <a href="#" class="whiteboard-actionable" data-action="rotate" data-trigger="mousedown">Ω</a>
+          </div>
+      </div>
+    </div>
+  </div>
+<script type="text/javascript">
+  whiteboard.init();
+</script>
+</body>
+</html>
