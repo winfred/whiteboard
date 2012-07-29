@@ -1,8 +1,9 @@
+<!DOCTYPE html">
 <html>
 <head>
   <title></title>
-  <link rel="stylesheet" type="text/css" href="whiteboard.css">
-  <script type="text/javascript" src="whiteboard.js"></script>
+  <link rel="stylesheet" type="text/css" href="css/whiteboard.css">
+  <script type="text/javascript" src="build/whiteboard.js"></script>
 </head>
 <body>
 
@@ -54,21 +55,17 @@
           <a href="#" class="whiteboard-actionable" data-action="rotate" data-trigger="mousedown">Ω</a>
         </div>
       </div>
-      <div class="whiteboard-actionable resizeable-pad" data-action="resize" data-trigger="mousedown">
         <div class="stroke-content" data-default-fontsize="16">
-          <h3 class="whiteboard-actionable editable" data-action="editText" data-trigger="mousedown">Write here...</h3>
+          <h3 class="whiteboard-actionable editable resizeable" data-action="editText" data-trigger="mousedown">Write here...</h3>
         </div>
-      </div>
       <div class="stroke-controls stroke-bottom">
         <a href="#" class="whiteboard-actionable" data-action="move" data-trigger="mousedown">Drag Me</a>
       </div>
     </div>
     <div class="brush" data-brush-name="arrow">
-      <div class="whiteboard-actionable resizeable-pad" data-action="resize" data-trigger="mousedown">
-        <div class="stroke-content">
-          <img src="http://upload.wikimedia.org/wikipedia/commons/7/71/Arrow_east.svg" width="100"/>
+        <div class="stroke-content ">
+          <img src="http://upload.wikimedia.org/wikipedia/commons/7/71/Arrow_east.svg"  class="resizeable" alt="arrow" width="100"/>
         </div>
-      </div>
       <div class="stroke-controls">
           <a href="#" class="whiteboard-actionable" data-action="move" data-trigger="mousedown">Drag Me</a>
           <div class="stroke-controls-right">
