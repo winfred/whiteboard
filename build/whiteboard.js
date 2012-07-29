@@ -386,146 +386,150 @@ whiteboard.Brush = (function(_){
   })(whiteboard);
 
 whiteboard.StrokeAction = (function(_){
-	var callbacks = {}
-	Emitter = {
-		on: function(event, callback){
-			callbacks[event] = callbacks[event] || [];
-			callbacks[event].push(callback);
-		},
+  var callbacks = {}
+  Emitter = {
+    on: function(event, fn){
+      callbacks[event] = callbacks[event] || [];
+      callbacks[event].push(fn);
+    },
 
-		off: function(event, callback){
-			var eventCallbacks = callbacks[event];
-			if (!eventCallbacks) return;
+    off: function(event, fn){
+      var eventCallbacks = callbacks[event];
+      if (!eventCallbacks) return;
 
-			if (arguments.length == 1) {
-				delete callbacks[event];
-				return;
-			}
+      if (arguments.length == 1) {
+        delete callbacks[event];
+        return;
+      }
 
-			var i = eventCallbacks.indexOf(fn);
-			eventCallbacks.splice(i, 1);
-		},
+      var i = eventCallbacks.indexOf(fn);
+      eventCallbacks.splice(i, 1);
+    },
 
-		emit: function(event){
-			var args = [].slice.call(arguments, 1)
-				, eventCallbacks = callbacks[event];
+    emit: function(event){
+      var args = [].slice.call(arguments, 1)
+        , eventCallbacks = callbacks[event];
 
-			if (eventCallbacks) {
-				for (var i = 0, len = eventCallbacks.length; i < len; ++i) {
-					eventCallbacks[i].apply(this, args);
-				}
-			}
-		}
-	};
-	
-	return {
-		extend: function(name, actions){
-			var strokeAction = {};
-			for(var action in actions) {
-				strokeAction[action] = (function(action, fn){
-					return  function(event, content, stroke){
-						fn(event,content,stroke);
-						Emitter.emit(name+"."+action);		
-					};
-				})(action,actions[action]);
-			}
-			return strokeAction;
-		},
-		/**
-		 * Expose emitter
-		 */
-		on: Emitter.on,
-		off: Emitter.off,
-		emit: Emitter.emit,
+      if (eventCallbacks) {
+        for (var i = 0, len = eventCallbacks.length; i < len; ++i) {
+          eventCallbacks[i].apply(this, args);
+        }
+      }
+    }
+  };
+  
+  return {
+    extend: function(name, actions){
+      var strokeAction = {};
+      for(var action in actions) {
+        strokeAction[action] = (function(action, fn){
+          return  function(){
+            fn.apply(strokeAction[action], arguments);
+            Emitter.emit(name+"."+action, arguments);   
+          };
+        })(action,actions[action]);
+      }
+      strokeAction.on = function(event,fn){
+        Emitter.on(name+'.'+event, fn);
+        return this;
+      }
+      return strokeAction;
+    },
+    /**
+     * Expose emitter
+     */
+    on: Emitter.on,
+    off: Emitter.off,
+    emit: Emitter.emit,
 
-		/* ------------------------------ */
-		/* StrokeAction Helpers  */
-		/* ----------------------------- */
+    /* ------------------------------ */
+    /* StrokeAction Helpers  */
+    /* ----------------------------- */
 
 
-		/**
-		 * Have the document catch all clicks with a callback
-		 *
-		 * @param {Function} callback
-		 * @returns void
-		 */
-		enableDocumentClickCatching: function(callback) {
-			_.addEvent(document, 'click', callback);
-		},
+    /**
+     * Have the document catch all clicks with a callback
+     *
+     * @param {Function} callback
+     * @returns void
+     */
+    enableDocumentClickCatching: function(callback) {
+      _.addEvent(document, 'click', callback);
+    },
 
-		/**
-		 * Stop the document from catching clicks with a calback
-		 *
-		 * @param {Function} callback
-		 * @returns void
-		 */
-		disableDocumentClickCatching: function(callback) {
-			_.removeEvent(document, 'click', callback);
-		},
+    /**
+     * Stop the document from catching clicks with a calback
+     *
+     * @param {Function} callback
+     * @returns void
+     */
+    disableDocumentClickCatching: function(callback) {
+      _.removeEvent(document, 'click', callback);
+    },
 
-		/**
-		 * Get the stroke that is currently focused by the user
-		 *
-		 * @returns {Element}
-		 */
-		focusedStroke: function() {
-			return document.getElementsByClassName('whiteboard-focused')[0];
-		},
+    /**
+     * Get the stroke that is currently focused by the user
+     *
+     * @returns {Element}
+     */
+    focusedStroke: function() {
+      return document.getElementsByClassName('whiteboard-focused')[0];
+    },
 
-		/**
-		 * Get the 'stroke-content' div for the currently focused stroke
-		 *
-		 * @returns {Element}
-		 */
-		focusedStrokeContent: function() {
-			return this.focusedStroke().getElementsByClassName('stroke-content')[0];
-		},
+    /**
+     * Get the 'stroke-content' div for the currently focused stroke
+     *
+     * @returns {Element}
+     */
+    focusedStrokeContent: function() {
+      return this.focusedStroke().getElementsByClassName('stroke-content')[0];
+    },
 
-		/**
-		 * Cross browser event binds to an element and its children
-		 *
-		 * @param {Element} node
-		 * @param {string} event
-		 * @param {Function} callback
-		 * @returns void 
-		 */
-		addEventToNodeAndChildren: function(node, event, callback) {
-			if (node.childElementCount == 0)
-				return node[event] = callback;
-			else {
-				_.addEvent(node, event, callback);
+    /**
+     * Cross browser event binds to an element and its children
+     *
+     * @param {Element} node
+     * @param {string} event
+     * @param {Function} callback
+     * @returns void 
+     */
+    addEventToNodeAndChildren: function(node, event, callback) {
+      if (node.childElementCount == 0)
+        return node[event] = callback;
+      else {
+        _.addEvent(node, event, callback);
 
-				for (var i = node.children.length - 1; i >= 0; i--)
-					_addEventToNodeAndChildren(node.children[i], event, callback);
-			}
-		},
-		
-		/**
-		 * takes the event and returns the keycode
-		 *  (thanks mousetrap.js)
-		 *
-		 * @param {Event} e
-		 * @return {number}
-		 */
-		keyCodeFromEvent: function(e) {
+        for (var i = node.children.length - 1; i >= 0; i--)
+          _addEventToNodeAndChildren(node.children[i], event, callback);
+      }
+    },
+    
+    /**
+     * takes the event and returns the keycode
+     *  (thanks mousetrap.js)
+     *
+     * @param {Event} e
+     * @return {number}
+     */
+    keyCodeFromEvent: function(e) {
 
-				// add which for key events
-				// @see http://stackoverflow.com/questions/4285627/javascript-keycode-vs-charcode-utter-confusion
-				var char_code = typeof e.which == "number" ? e.which : e.keyCode;
+        // add which for key events
+        // @see http://stackoverflow.com/questions/4285627/javascript-keycode-vs-charcode-utter-confusion
+        var char_code = typeof e.which == "number" ? e.which : e.keyCode;
 
-				// right command on webkit, command on gecko
-				if (char_code == 93 || char_code == 224) {
-						return 91;
-				}
+        // right command on webkit, command on gecko
+        if (char_code == 93 || char_code == 224) {
+            return 91;
+        }
 
-				// map keypad numbers to top-of-keyboard numbers
-				if (char_code >= 96 && char_code <= 105){
-						return char_code - 48;
-				}
+        // map keypad numbers to top-of-keyboard numbers
+        if (char_code >= 96 && char_code <= 105){
+            return char_code - 48;
+        }
 
-				return char_code;
-		}
-	};
+        return char_code;
+    }
+  };
 
 })(whiteboard);
 
@@ -533,29 +537,29 @@ whiteboard.StrokeAction = (function(_){
  * Decrease the font-size of a stroke's stroke-content element
  */
 whiteboard.StrokeAction.decreaseFontSize = whiteboard.StrokeAction
-	.extend('decreaseFontSize', {
-			invoke: function(event, content) {
-				var pixels = Number(content.style.fontSize.split('px')[0]);
-				content.style.fontSize = (pixels - 2) + 'px';
-			}
-	});
+  .extend('decreaseFontSize', {
+      invoke: function(event, content) {
+        var pixels = Number(content.style.fontSize.split('px')[0]);
+        content.style.fontSize = (pixels - 2) + 'px';
+      }
+  });
 
 /**
  * Deletes the stroke if the backspace key was pressed
  */
 whiteboard.StrokeAction.destroy = (function(_,$){
 
-	return $.extend('destroy',{
-		invoke: function(event) {
-			if ($.keyCodeFromEvent(event) === 8 && !event.target.hasClass('editable')) {
-				if (event.preventDefault) event.preventDefault();
-				if (event.stopPropagation) event.stopPropagation(); //pesky browser back on backspace
-				_.htmlTag.removeChild($.focusedStroke());
-				$.disableDocumentClickCatching($.focus.complete);
-			}
-			return false;
-		}
-	});
+  return $.extend('destroy',{
+    invoke: function(event) {
+      if ($.keyCodeFromEvent(event) === 8 && !event.target.hasClass('editable')) {
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopPropagation) event.stopPropagation(); //pesky browser back on backspace
+        _.htmlTag.removeChild($.focusedStroke());
+        $.disableDocumentClickCatching($.focus.complete);
+      }
+      return false;
+    }
+  });
 
 })(whiteboard, whiteboard.StrokeAction);
 
@@ -564,27 +568,27 @@ whiteboard.StrokeAction.destroy = (function(_,$){
  * Make a specific element editable and listen for the user to be done editing
  */
 whiteboard.StrokeAction.editText = (function(_ ,$){
-	return $.extend('editText', {
-		invoke: function(event) {
-				var editableText = event.target;
-				editableText.contentEditable = "true";
-				editableText.id = "whiteboard-beingEdited"
+  return $.extend('editText', {
+    invoke: function(event) {
+        var editableText = event.target;
+        editableText.contentEditable = "true";
+        editableText.id = "whiteboard-beingEdited"
 
-				_.addEvent(editableText, 'keydown', $.editText.complete);
-				$.enableDocumentClickCatching($.editText.complete);
-		},
+        _.addEvent(editableText, 'keydown', $.editText.complete);
+        $.enableDocumentClickCatching($.editText.complete);
+    },
 
-		complete: function(event) {
-			if (!event.target.isContainedInElementOfClass('editable')) {
-				var editableText = document.getElementById('whiteboard-beingEdited');
-				editableText.contentEditable = "false";
-				editableText.id = "";
+    complete: function(event) {
+      if (!event.target.isContainedInElementOfClass('editable')) {
+        var editableText = document.getElementById('whiteboard-beingEdited');
+        editableText.contentEditable = "false";
+        editableText.id = "";
 
-				_.removeEvent(editableText, 'keydown', $.editText.complete);
-				$.disableDocumentClickCatching($.editText.complete);
-			}
-		}
-	});
+        _.removeEvent(editableText, 'keydown', $.editText.complete);
+        $.disableDocumentClickCatching($.editText.complete);
+      }
+    }
+  });
 })(whiteboard, whiteboard.StrokeAction);
 
 /**
@@ -592,27 +596,27 @@ whiteboard.StrokeAction.editText = (function(_ ,$){
  */
 whiteboard.StrokeAction.focus = (function(_,$){
 
-	return $.extend('focus',{
-		invoke: function(event) {
-			var focusedStroke = $.focusedStroke();
-			if (focusedStroke) focusedStroke.removeClass('whiteboard-focused');
+  return $.extend('focus',{
+    invoke: function(event) {
+      var focusedStroke = $.focusedStroke();
+      if (focusedStroke) focusedStroke.removeClass('whiteboard-focused');
 
-			_.addEvent(document, 'keyup', $.destroy.invoke);
+      _.addEvent(document, 'keyup', $.destroy.invoke);
 
-			event.currentTarget.addClass('whiteboard-focused');
-			$.enableDocumentClickCatching($.focus.complete);
-		},
+      event.currentTarget.addClass('whiteboard-focused');
+      $.enableDocumentClickCatching($.focus.complete);
+    },
 
-		complete: function(event) {
-			if (!event.target.isContainedInElementOfClass('whiteboard-focused')) {
-				var stroke = $.focusedStroke();
-				
-				stroke.removeClass('whiteboard-focused');
-				$.disableDocumentClickCatching($.focus.complete);
-				_.removeEvent(document, 'keyup', $.destroy.invoke);
-			};
-		}
-	});
+    complete: function(event) {
+      if (!event.target.isContainedInElementOfClass('whiteboard-focused')) {
+        var stroke = $.focusedStroke();
+        
+        stroke.removeClass('whiteboard-focused');
+        $.disableDocumentClickCatching($.focus.complete);
+        _.removeEvent(document, 'keyup', $.destroy.invoke);
+      };
+    }
+  });
 
 })(whiteboard, whiteboard.StrokeAction);
 
@@ -620,112 +624,112 @@ whiteboard.StrokeAction.focus = (function(_,$){
  * Increase the font-size of a stroke's stroke-content element
  */
 whiteboard.StrokeAction.increaseFontSize = whiteboard.StrokeAction
-	.extend('increaseFontSize', {
-		invoke: function(event, content) {
-			var pixels = Number(content.style.fontSize.split('px')[0]);
-			if (!pixels) {
-				pixels = Number(content.attributes.getNamedItem('data-default-fontsize').value)
-			}
-			content.style.fontSize = (pixels + 2) + 'px';
-		}
-	});
+  .extend('increaseFontSize', {
+    invoke: function(event, content) {
+      var pixels = Number(content.style.fontSize.split('px')[0]);
+      if (!pixels) {
+        pixels = Number(content.attributes.getNamedItem('data-default-fontsize').value)
+      }
+      content.style.fontSize = (pixels + 2) + 'px';
+    }
+  });
 
 /**
  * Move an element while its drag handler is held by the mouse
  */
 whiteboard.StrokeAction.move = (function(_,$){
-	return $.extend('move', {
-		invoke: function(event, content, stroke) {
-			stroke.id = "whiteboard-beingMoved";
-			_.addEvent(_.htmlTag, 'mousemove', $.move.process);
-			_.addEvent(_.htmlTag, 'mouseup', $.move.complete);
-		},
+  return $.extend('move', {
+    invoke: function(event, content, stroke) {
+      stroke.id = "whiteboard-beingMoved";
+      _.addEvent(_.htmlTag, 'mousemove', $.move.process);
+      _.addEvent(_.htmlTag, 'mouseup', $.move.complete);
+    },
 
-		process: function(event) {
-			var movingElement = document.getElementById('whiteboard-beingMoved');
-			movingElement.style.top = _.mouseY - movingElement.clientHeight + 10 + "px";
-			movingElement.style.left = _.mouseX + "px";
-		},
+    process: function(event) {
+      var movingElement = document.getElementById('whiteboard-beingMoved');
+      movingElement.style.top = _.mouseY - movingElement.clientHeight + 10 + "px";
+      movingElement.style.left = _.mouseX + "px";
+    },
 
-		complete: function(event) {
-			document.getElementById('whiteboard-beingMoved').id = "";
-			_.removeEvent(_.htmlTag, 'mouseup', $.move.complete);
-			_.removeEvent(_.htmlTag, 'mousemove', $.move.process);
-		}
-	});
+    complete: function(event) {
+      document.getElementById('whiteboard-beingMoved').id = "";
+      _.removeEvent(_.htmlTag, 'mouseup', $.move.complete);
+      _.removeEvent(_.htmlTag, 'mousemove', $.move.process);
+    }
+  });
 })(whiteboard, whiteboard.StrokeAction);
 
 /**
  * Apply CSS3 rotate transformations to the stroke while handler is held down
  */
 whiteboard.StrokeAction.rotate = (function(_,$){
-	
-		/**
-		 * Given a number, provide its rotation grid locked value
-		 * 
-		 * @param {number}
-		 * @returns {number}
-		 */
-		function _rotationGridLock(number) {
-			//there has to be a more clever way to do this with modulo 45
-			if (_numberIsWithinGridlock(number - 180))
-				return 180;
+  
+    /**
+     * Given a number, provide its rotation grid locked value
+     * 
+     * @param {number}
+     * @returns {number}
+     */
+    function _rotationGridLock(number) {
+      //there has to be a more clever way to do this with modulo 45
+      if (_numberIsWithinGridlock(number - 180))
+        return 180;
 
-			if (_numberIsWithinGridlock(number + 180))
-				return -180;
+      if (_numberIsWithinGridlock(number + 180))
+        return -180;
 
-			if (_numberIsWithinGridlock(number - 90))
-				return 90;
+      if (_numberIsWithinGridlock(number - 90))
+        return 90;
 
-			if (_numberIsWithinGridlock(number + 90))
-				return -90;
+      if (_numberIsWithinGridlock(number + 90))
+        return -90;
 
-			if (_numberIsWithinGridlock(number))
-				return 0;
+      if (_numberIsWithinGridlock(number))
+        return 0;
 
-			return number;
-		};
+      return number;
+    };
 
-		/** 
-		 * Determine if a number should be reset to its grid value
-		 *
-		 * @param {number}
-		 * @returns {boolean}
-		 */
-		function _numberIsWithinGridlock(number) {
-			return Math.abs(number) < 5 && Math.abs(number) > -5;
-		};
+    /** 
+     * Determine if a number should be reset to its grid value
+     *
+     * @param {number}
+     * @returns {boolean}
+     */
+    function _numberIsWithinGridlock(number) {
+      return Math.abs(number) < 5 && Math.abs(number) > -5;
+    };
 
 
-		return $.extend('rotate', {
+    return $.extend('rotate', {
 
-			invoke: function(event, content) {
-				var stroke = $.focusedStroke();
+      invoke: function(event, content) {
+        var stroke = $.focusedStroke();
 
-				_.addEvent(_.htmlTag, 'mousemove', $.rotate.process);
-				_.addEvent(_.htmlTag, 'mouseup', $.rotate.complete);
-			},
+        _.addEvent(_.htmlTag, 'mousemove', $.rotate.process);
+        _.addEvent(_.htmlTag, 'mouseup', $.rotate.complete);
+      },
 
-			process: function(event) {
-				var strokeContent = $.focusedStrokeContent(),
-						rotation = strokeContent.attributes.getNamedItem('data-rotation');
+      process: function(event) {
+        var strokeContent = $.focusedStrokeContent(),
+            rotation = strokeContent.attributes.getNamedItem('data-rotation');
 
-				if (!rotation) {
-					rotation = document.createAttribute('data-rotation');
-					rotation.nodeValue = 0;
-				}
+        if (!rotation) {
+          rotation = document.createAttribute('data-rotation');
+          rotation.nodeValue = 0;
+        }
 
-				var degrees = _rotationGridLock(Number(rotation.value) - _.deltaX) % 360;
+        var degrees = _rotationGridLock(Number(rotation.value) - _.deltaX) % 360;
 
-				rotation.nodeValue = degrees;
-				strokeContent.attributes.setNamedItem(rotation);
+        rotation.nodeValue = degrees;
+        strokeContent.attributes.setNamedItem(rotation);
 
-				strokeContent.applyCSSTransformation("rotate(" + degrees + "deg)");
-			},
+        strokeContent.applyCSSTransformation("rotate(" + degrees + "deg)");
+      },
 
-			complete: function(event) {
-				_.removeEvent(_.htmlTag, 'mousemove', $.rotate.process);
-				_.removeEvent(_.htmlTag, 'mouseup', $.rotate.complete);
-			}
-		});
+      complete: function(event) {
+        _.removeEvent(_.htmlTag, 'mousemove', $.rotate.process);
+        _.removeEvent(_.htmlTag, 'mouseup', $.rotate.complete);
+      }
+    });
 })(whiteboard, whiteboard.StrokeAction);

@@ -1,0 +1,26 @@
+<!DOCTYPE html5>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mocha Tests</title>
+  <link rel="stylesheet" href="vendor/css/mocha.css" />
+
+  <script src="vendor/js/expect.js"></script>
+  <script src="vendor/js/mocha.js"></script>
+  <script>mocha.setup('bdd')</script>
+	<script src="../build/whiteboard.js"></script>
+	<script src="StrokeAction/test.StrokeAction.js"></script>
+  <script>
+
+  </script>
+</head>
+<body>
+  <div id="mocha"></div>
+	<script>
+      mocha
+        //.globals(['Buffer']) // acceptable globals
+        .run()
+	</script>
+</body>
+</html>
+
