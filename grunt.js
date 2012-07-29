@@ -4,7 +4,7 @@ module.exports = function(grunt) {
   grunt.initConfig({
 		concat: {
 			dist: {
-				src: ['lib/*.js', 'lib/**/*.js'],
+				src: ['lib/*.js', 'lib/*/*.js', 'lib/**/*.js'],
 				dest: 'build/whiteboard.js'
 			}
 		},
