@@ -10,6 +10,7 @@
   <script>mocha.setup('bdd')</script>
 	<script src="../build/whiteboard.js"></script>
 	<script src="test.whiteboard.js"></script>	
+	<script src="Canvas/test.Canvas.js"></script>		
 	<script src="StrokeAction/test.StrokeAction.js"></script>
   <script>
 
@@ -19,7 +20,7 @@
   <div id="mocha"></div>
 	<script>
       mocha
-        //.globals(['Buffer']) // acceptable globals
+        //.globals(['whiteboard']) // acceptable globals
         .run()
 	</script>
 </body>

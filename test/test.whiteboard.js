@@ -37,4 +37,17 @@ describe("whiteboard", function() {
     });
   });
 
+  describe("attributes", function() {
+    describe("activeCanvas", function() {
+      it("stores a reference to the canvas that is currently being manipulated", function() {
+        _.hasOwnProperty("activeCanvas");
+        //TODO: flesh out this concept
+      });
+      
+      it("listens for new brush strokes to add to the active canvas", function() {
+        
+      });
+    });
+  });
+
 });
