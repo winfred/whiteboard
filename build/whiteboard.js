@@ -53,8 +53,32 @@ window.whiteboard = (function(){
   /* Private variables and functions */
   /* ------------------------------- */
 
-   var _brushes = {}, _activeBrush,
-			 _previousX, _previousY;
+  var _brushes = {}, _callbacks = {},
+      _activeBrush, _previousX, _previousY;
+
+  /**
+   * Find all callbacks that match a specific event pattern
+   *
+   * Supports wildcard "*" characters when searching modules for events
+   *
+   * @param {String} query
+   * @return {Array}
+   * @api private
+   */
+  function _findMatchingEventCallbacks(query) {
+    var results = [],
+        match,
+        exp;
+
+    for (var event in _callbacks) {
+      exp = event.replace(".","\\.").replace("*",".+");
+      match = query.match(exp);
+      if (match && match.shift() === query)
+        results = results.concat(_callbacks[event]);
+    }
+    return results;
+  };
+
 
 
   /**
@@ -190,38 +214,112 @@ window.whiteboard = (function(){
     return _brushes[name];
   }
 
-  /*
-   *  Shorthand for the global whiteboard POJO.
-   *  _ === window.whiteboard
-   *  But we need to also expose it to public objects (Brush/StrokActions) within this 
-   *   IIFE scope since they (currently) need access to private helper functions
+   /*
+   *  Expose the global whiteboard POJO.
    */
-  var _ = {
+  return {
     /**
-     * Expose cross browser event methods for fun
+     * Expose package variables
+     */
+    activeBrush: _activeBrush,
+    htmlTag:  document.getElementsByTagName('html')[0],
+
+
+    /**
+     * Expose cross browser event methods
+     *  Just needed by the package, but here they are, public anyway
      */
     addEvent: _addEvent,
     removeEvent: _removeEvent,
     fireEvent: _fireEvent,
 
-		/**
-		 * Expose other package variables
-		 */
-		activeBrush: _activeBrush,
-		htmlTag:  document.getElementsByTagName('html')[0],
+
+    /**
+     * Expose emitter methods
+     *
+     * Events are named after their module and function (much like Backbone.js)
+     * ------Examples------
+     * 1.) listen for every time an element is focued
+     *    whiteboard.on("StrokeAction.focused.complete", myFunction);
+     *
+     * 2.) listen to any 'complete' strokeAction
+     *    whiteboard.StrokeAction.on("*.complete");
+     *    whiteboard.on("StrokeAction.*.complete"); //equivalent to the line above
+     *
+     * 3.) listen to all complete actions (just Brush and StrokeActions at the moment)
+     *    whiteboard.on("*.complete");
+     */
+
+    /**
+     * Add a new event listener to whiteboard
+     * 
+     * @param {String} event
+     * @param {Function} callback
+     * @return {whiteboard} this
+     * @api public
+     */
+    on: function(event, fn){
+      _callbacks[event] = _callbacks[event] || [];
+      _callbacks[event].push(fn);
+      return this;
+    },
+
+    /**
+     * Remove an event listener from whiteboard
+     * 
+     * @param {String} event
+     * @param {Function} callback
+     * @return {whiteboard} this
+     * @api public
+     */
+
+    off: function(event, fn){
+      var eventCallbacks = _callbacks[event];
+      if (!eventCallbacks) return;
+
+      if (arguments.length == 1) {
+        delete _callbacks[event];
+        return;
+      }
+
+      var i = eventCallbacks.indexOf(fn);
+      eventCallbacks.splice(i, 1);
+      return this;
+    },
+
+    
+    /**
+     * Trigger all event listeners for an event
+     *
+     * @param {String} event
+     * @return {whiteboard} this
+     * @api public
+     */
+    emit: function(event){
+      var args = [].slice.call(arguments, 1)
+      , eventCallbacks = _findMatchingEventCallbacks(event);
+
+      if (eventCallbacks) {
+        for (var i = 0, len = eventCallbacks.length; i < len; ++i) {
+          eventCallbacks[i].apply(this, args);
+        }
+      }
+      return this;
+    },
 
 
-		/**
+    /**
      * register a new brush type
      * should be a DOM element with which the contents will be used to paint
      * see HTML data-attribute API reference
      *
      * @param {Element} element
-     * @returns void
+     * @returns {whiteboard}
     */
     addBrush: function(element) {
       var name = element.attributes.getNamedItem('data-brush-name').value;
       _brushes[name] = new this.Brush(element, name);
+      return this;
     },
 
     /**
@@ -236,6 +334,8 @@ window.whiteboard = (function(){
 
     /**
      * find all the brushes in the document and register them
+     *
+     * @return {whiteboard}
      */
     init: function() {
       var brushes = document.getElementsByClassName('brush'),
@@ -251,20 +351,12 @@ window.whiteboard = (function(){
       _addEvent(document, 'mousedown', function(e){
         if (_shouldPaintStroke(e))
           _paintStroke(e);
+
+      return this;
       });
     }
   };
 
-
-  /* ------------------------------------------- */
-  /* Expose whiteboard public helper constructs  */
-  /* ------------------------------------------- */
-
-
-
-  
-  //return the whiteboard global object (shorthanded)
-  return _;
 })();
 
 /**
@@ -386,65 +478,67 @@ whiteboard.Brush = (function(_){
   })(whiteboard);
 
 whiteboard.StrokeAction = (function(_){
-  var callbacks = {}
-  Emitter = {
-    on: function(event, fn){
-      callbacks[event] = callbacks[event] || [];
-      callbacks[event].push(fn);
-    },
-
-    off: function(event, fn){
-      var eventCallbacks = callbacks[event];
-      if (!eventCallbacks) return;
-
-      if (arguments.length == 1) {
-        delete callbacks[event];
-        return;
-      }
-
-      var i = eventCallbacks.indexOf(fn);
-      eventCallbacks.splice(i, 1);
-    },
-
-    emit: function(event){
-      var args = [].slice.call(arguments, 1)
-        , eventCallbacks = callbacks[event];
-
-      if (eventCallbacks) {
-        for (var i = 0, len = eventCallbacks.length; i < len; ++i) {
-          eventCallbacks[i].apply(this, args);
-        }
-      }
-    }
-  };
+	var module = "StrokeAction";
   
   return {
-    extend: function(name, actions){
-      var strokeAction = {};
+    /**
+     * Expose module scoped emitter
+     */
+		on: function(event, fn) {
+			return _.on(module + "." + event, fn);
+		},
+		off: function(event, fn) {
+			return _.off(module + "." + event, fn);
+		},
+		emit: function(event) {
+			return _.emit(module + "." + event);
+		},
+		
+		/**
+		 * A functional extension for StrokeActions
+		 *   This takes care of hooking a StrokeAction's logic into the event emitter
+		 *
+		 * @param {String} name - of the new StrokeAction
+		 * @param {Object} actions - pojo of action steps
+		 * @return {StrokeAction}
+		 */
+
+		extend: function(name, actions){
+      var strokeAction = {
+				/**
+				 * Expose action scoped emitter
+				 */
+				on: function(event, fn) {
+					return _.on(module + "." + name + "." + event, fn);
+				},
+				off: function(event, fn) {
+					return _.off(module + "." + name + "." + event, fn);
+				},
+				emit: function(event) {
+					return _.emit(module + "." + name + "." + event);
+				}
+			};
       for(var action in actions) {
+				/**
+				 * This is where the actions steps are wrapped with event emission.
+				 * Perhaps this is a good place for other kinds of hooks to tie in
+				 *  (before/after)
+				 */
         strokeAction[action] = (function(action, fn){
           return  function(){
             fn.apply(strokeAction[action], arguments);
-            Emitter.emit(name+"."+action, arguments);   
+            strokeAction.emit(action, arguments);
           };
         })(action,actions[action]);
       }
-      strokeAction.on = function(event,fn){
-        Emitter.on(name+'.'+event, fn);
-        return this;
-      }
+
       return strokeAction;
     },
-    /**
-     * Expose emitter
-     */
-    on: Emitter.on,
-    off: Emitter.off,
-    emit: Emitter.emit,
 
-    /* ------------------------------ */
-    /* StrokeAction Helpers  */
-    /* ----------------------------- */
+
+    /* -----------------------------*/
+    /* StrokeAction Helpers  				*/
+    /* -----------------------------*/
 
 
     /**
