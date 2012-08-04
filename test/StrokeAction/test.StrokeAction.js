@@ -19,7 +19,7 @@ describe("whiteboard.StrokeAction", function() {
       expect(handlerCalled).to.be(true);
     });
 
-    it("provides shortcut functions for registering event handlers", function() {
+    it("provides action-scoped functions for registering event handlers", function() {
       var handlerCalled = false,
           myFun = function() {
             handlerCalled = true;
