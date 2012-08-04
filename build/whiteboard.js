@@ -385,7 +385,7 @@ whiteboard.Brush = (function(_){
    * Paint a new copy of a brush's template onto the DOM
    * Initialize all DOM listeners for strokeActions on the stroke.
    *
-   * @returns void
+   * @returns {Stroke} newly painted stroke 
    */
   Brush.prototype.paintStroke = function(stroke) {
     if (!stroke) {
@@ -399,6 +399,7 @@ whiteboard.Brush = (function(_){
 
     _.StrokeAction.initializeStrokeActionEventListeners(stroke); 
     _.emit("Brush."+ name + ".paintStroke", {brush: this, stroke: stroke});
+		return stroke; 
   };
 
   /**
@@ -566,7 +567,7 @@ whiteboard.Canvas = (function(_){
    * @api private
    */
   function _createOrUpdateStroke(event) {
-    Canvas.active.strokes[event.stroke.id] = event.stroke;
+    Canvas.active.strokes[event.target.id] = event.target;
   };
 
 
@@ -576,43 +577,6 @@ whiteboard.Canvas = (function(_){
 
 whiteboard.StrokeAction = (function(_){
   var module = "StrokeAction";
-
-    /**
-     * Get the parent stroke container for a given actionable element
-     *   If the element provided is not contained in a stroke, 
-     *   provide the focused stroke.
-     * 
-     * @param {Element} element
-     * @returns {Element} stroke
-     * @throws {StrokeMissingException} 
-     * @api private
-     */
-    function _strokeForElement(element) {
-      if (!element) 
-        return _.StrokeAction.focusedStroke();
-
-      var probe = element;
-      while (!probe.hasClass('stroke') && probe !== _.htmlTag)
-        probe = probe.parentElement;
-
-      if (probe.hasClass('stroke'))
-        return probe;
-      else 
-        return whiteboard.StrokeAction.focusedStroke();
-    };
-
-    function _createInternalEvent(action, step, DOMevent, target) {
-      DOMevent = DOMevent || {};
-      var stroke = _strokeForElement(DOMevent.target);
-
-      return {
-        action: action,
-        step: step,
-        stroke: stroke,
-        e: DOMevent,
-        target: target
-      };
-    };
 
   return {
     /**
@@ -638,8 +602,7 @@ whiteboard.StrokeAction = (function(_){
      */
 
     extend: function(action, steps){
-      if (steps.init) steps.init();
-
+      
       var strokeAction = {
         /**
          * Expose action scoped emitter
@@ -665,10 +628,16 @@ whiteboard.StrokeAction = (function(_){
         strokeAction[step] = (function(step, fn){
           return  function(DOMevent){
             fn.apply(strokeAction, arguments);
-            strokeAction.emit.apply(strokeAction, [step, _createInternalEvent(action, step, DOMevent, strokeAction.target)]);
+            strokeAction.emit.apply(strokeAction, [step, {
+              action: action,
+              step: step,
+              e: DOMevent,
+              target: strokeAction.target
+            }]);
           };
         })(step,steps[step]);
       }
+      if (steps.init) steps.init.call(strokeAction);
 
       return strokeAction;
     },
@@ -770,7 +739,7 @@ whiteboard.StrokeAction = (function(_){
      * @api module 
      */
      invokeStrokeActionFromEvent: function(event) {
-      var stroke = _strokeForElement(event.target),
+      var stroke = _.StrokeAction.strokeForElement(event.target),
           action = event.currentTarget.attributes.getNamedItem('data-action').value,
           content = stroke.getElementsByClassName('stroke-content')[0];
 
@@ -804,7 +773,30 @@ whiteboard.StrokeAction = (function(_){
       //all strokes respond to the focus action
       _.addEvent(stroke, 'mousedown', _.StrokeAction.focus.invoke);
 
+    },
+    /**
+     * Get the parent stroke container for a given actionable element
+     *   If the element provided is not contained in a stroke, 
+     *   provide the focused stroke.
+     * 
+     * @param {Element} element
+     * @returns {Element} stroke
+     * @api module
+     */
+    strokeForElement: function(element) {
+      if (!element) 
+        return _.StrokeAction.focusedStroke();
+
+      var probe = element;
+      while (!probe.hasClass('stroke') && probe !== _.htmlTag)
+        probe = probe.parentElement;
+
+      if (probe.hasClass('stroke'))
+        return probe;
+      else 
+        return whiteboard.StrokeAction.focusedStroke();
     }
+
 
   };
 
@@ -815,14 +807,15 @@ whiteboard.StrokeAction = (function(_){
  */
 whiteboard.StrokeAction.decreaseFontSize = whiteboard.StrokeAction
   .extend('decreaseFontSize', {
-      invoke: function(event, content, stroke) {
-				this.target  = content;
-				this.stroke = stroke;
+      invoke: function(event) {
+        this.target  = whiteboard.StrokeAction.strokeForElement(event.target);
 				this.commit();
       },
 			commit: function() {
-				var pixels = Number(this.content.style.fontSize.split('px')[0]);
-				this.content.style.fontSize = (pixels - 2) + 'px';
+        var content = this.target.getElementsByClassName('stroke-content')[0];
+				    pixels = Number(content.style.fontSize.split('px')[0]);
+
+				content.style.fontSize = (pixels - 2) + 'px';
 			}       
   });
 
@@ -832,32 +825,11 @@ whiteboard.StrokeAction.decreaseFontSize = whiteboard.StrokeAction
 whiteboard.StrokeAction.destroy = (function(_,$){
 
   return $.extend('destroy',{
-    init: function() {
-      $.on('focus.invoke', function(){
-        $.destroy.invoke();
-      });
-      $.on('focus.commit', function(){
-        $.destroy.abort();
-      });
-    },
-    abort: function(event) {
-      _.removeEvent(document, 'keydown', $.destroy.process);
-    },
     invoke: function(event) {
-      _.addEvent(document, 'keydown', $.destroy.process);
-    },
-    process: function(event) {
-      if (event.preventDefault) event.preventDefault();
-      if (event.stopPropagation) event.stopPropagation();
-
-      if ($.keyCodeFromEvent(event) === 8 && !event.target.hasClass('editable')) {
-        $.destroy.commit();
-      }
-      return false;
+      this.target = $.strokeForElement(event.target);
+      this.commit();
     },
     commit: function(event) {
-      this.target = $.focus.target;
-      $.focus.commit();
       _.htmlTag.removeChild(this.target);
     }
   });
@@ -874,20 +846,17 @@ whiteboard.StrokeAction.editText = (function(_ ,$){
         this.target = event.target;
         this.target.contentEditable = "true";
 
-
-        _.addEvent(this.target, 'keydown', $.editText.process);
         $.enableDocumentClickCatching($.editText.process);
     },
-		process: function(event) {
+    process: function(event) {
       if (!event.target.isContainedInElementOfClass('editable'))
-				$.editText.commit();
-		},
+        $.editText.commit();
+    },
 
     commit: function() {
-			this.target.contentEditable = "false";
+      this.target.contentEditable = "false";
 
-			_.removeEvent(this.target, 'keydown', $.editText.process);
-			$.disableDocumentClickCatching($.editText.process);
+      $.disableDocumentClickCatching($.editText.process);
     }
   });
 })(whiteboard, whiteboard.StrokeAction);
@@ -919,18 +888,11 @@ whiteboard.StrokeAction.focus = (function(_,$){
 
   return $.extend('focus',{
     invoke: function(event) {
-      _setTarget.call(this, event.currentTarget);
-      $.enableDocumentClickCatching($.focus.process);
-    },
-
-    process: function(event) {
-      if (!event.target.isContainedInElementOfClass('whiteboard-focused'))
-        $.focus.commit();
+     _setTarget.call(this, event.currentTarget);
+     this.commit();
     },
 
     commit: function() {
-      _setTarget.call(this, null);
-      $.disableDocumentClickCatching($.focus.process);
     }
   });
 
@@ -942,11 +904,18 @@ whiteboard.StrokeAction.focus = (function(_,$){
 whiteboard.StrokeAction.increaseFontSize = whiteboard.StrokeAction
   .extend('increaseFontSize', {
     invoke: function(event, content) {
-      var pixels = Number(content.style.fontSize.split('px')[0]);
+      this.target = whiteboard.StrokeAction.strokeForElement(event.target);
+      this.commit();
+    },
+    commit: function() {
+      var content = this.target.getElementsByClassName('stroke-content')[0],
+          pixels = Number(content.style.fontSize.split('px')[0]);
+
       if (!pixels) {
         pixels = Number(content.attributes.getNamedItem('data-default-fontsize').value)
       }
       content.style.fontSize = (pixels + 2) + 'px';
+ 
     }
   });
 
@@ -956,21 +925,20 @@ whiteboard.StrokeAction.increaseFontSize = whiteboard.StrokeAction
 whiteboard.StrokeAction.move = (function(_,$){
   return $.extend('move', {
     invoke: function(event, content, stroke) {
-      stroke.id = "whiteboard-beingMoved";
-      _.addEvent(_.htmlTag, 'mousemove', $.move.process);
-      _.addEvent(_.htmlTag, 'mouseup', $.move.commit);
+			this.target = $.strokeForElement(event.target);
+
+      _.addEvent(_.htmlTag, 'mousemove', this.process);
+      _.addEvent(_.htmlTag, 'mouseup', this.commit);
     },
 
     process: function(event) {
-      var movingElement = document.getElementById('whiteboard-beingMoved');
-      movingElement.style.top = _.mouseY - movingElement.clientHeight + 10 + "px";
-      movingElement.style.left = _.mouseX + "px";
+      this.target.style.top = _.mouseY - this.target.clientHeight + 10 + "px";
+      this.target.style.left = _.mouseX + "px";
     },
 
     commit: function(event) {
-      document.getElementById('whiteboard-beingMoved').id = "";
-      _.removeEvent(_.htmlTag, 'mouseup', $.move.commit);
-      _.removeEvent(_.htmlTag, 'mousemove', $.move.process);
+      _.removeEvent(_.htmlTag, 'mouseup', this.commit);
+      _.removeEvent(_.htmlTag, 'mousemove', this.process);
     }
   });
 })(whiteboard, whiteboard.StrokeAction);
@@ -1020,14 +988,14 @@ whiteboard.StrokeAction.rotate = (function(_,$){
     return $.extend('rotate', {
 
       invoke: function(event, content) {
-        var stroke = $.focusedStroke();
+        this.target = $.strokeForElement(event.target);
 
-        _.addEvent(_.htmlTag, 'mousemove', $.rotate.process);
-        _.addEvent(_.htmlTag, 'mouseup', $.rotate.commit);
+        _.addEvent(_.htmlTag, 'mousemove', this.process);
+        _.addEvent(_.htmlTag, 'mouseup', this.commit);
       },
 
       process: function(event) {
-        var strokeContent = $.focusedStrokeContent(),
+        var strokeContent = this.target.getElementsByClassName('stroke-content')[0],
             rotation = strokeContent.attributes.getNamedItem('data-rotation');
 
         if (!rotation) {
@@ -1044,8 +1012,36 @@ whiteboard.StrokeAction.rotate = (function(_,$){
       },
 
       commit: function(event) {
-        _.removeEvent(_.htmlTag, 'mousemove', $.rotate.process);
-        _.removeEvent(_.htmlTag, 'mouseup', $.rotate.commit);
+        _.removeEvent(_.htmlTag, 'mousemove', this.process);
+        _.removeEvent(_.htmlTag, 'mouseup', this.commit);
       }
     });
+})(whiteboard, whiteboard.StrokeAction);
+
+/**
+ * Remove focused CSS styles from a stroke
+ */
+whiteboard.StrokeAction.unfocus = (function(_,$){
+  
+  return $.extend('unfocus', {
+
+    init: function() {
+      $.on("focus.commit", this.invoke);
+    },
+
+    invoke: function() {
+      $.enableDocumentClickCatching(this.process);
+    },
+
+    process: function(event) {
+      if (!event.target.isContainedInElementOfClass('whiteboard-focused'))
+        this.commit();
+    },
+
+    commit: function() {
+      this.target = $.focus.target;
+      this.target.removeClass('whiteboard-focused');
+      $.disableDocumentClickCatching(this.process);
+    }
+  });
 })(whiteboard, whiteboard.StrokeAction);
