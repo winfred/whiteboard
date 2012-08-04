@@ -1035,7 +1035,7 @@ Mocha.prototype.grep = function(re){
 };
 
 /**
- * Run tests and invoke `fn()` when complete.
+ * Run tests and invoke `fn()` when commit.
  *
  * @param {Function} fn
  * @return {Runner}
@@ -1349,7 +1349,7 @@ Base.prototype.epilogue = function(){
 
   // pass
   fmt = color('bright pass', '  ✔')
-    + color('green', ' %d %s complete')
+    + color('green', ' %d %s commit')
     + color('light', ' (%dms)');
 
   console.log(fmt,
@@ -2731,13 +2731,13 @@ function Progress(runner, options) {
     , stats = this.stats
     , width = Base.window.width * .50 | 0
     , total = runner.total
-    , complete = 0
+    , commit = 0
     , max = Math.max;
 
   // default chars
   options.open = options.open || '[';
-  options.complete = options.complete || '▬';
-  options.incomplete = options.incomplete || '⋅';
+  options.commit = options.complete || '▬';
+  options.incommit = options.incomplete || '⋅';
   options.close = options.close || ']';
   options.verbose = false;
 
@@ -2747,26 +2747,26 @@ function Progress(runner, options) {
     cursor.hide();
   });
 
-  // tests complete
+  // tests commit
   runner.on('test end', function(){
-    complete++;
-    var incomplete = total - complete
-      , percent = complete / total
+    commit++;
+    var incommit = total - complete
+      , percent = commit / total
       , n = width * percent | 0
       , i = width - n;
 
     cursor.CR();
     process.stdout.write('\033[J');
     process.stdout.write(color('progress', '  ' + options.open));
-    process.stdout.write(Array(n).join(options.complete));
-    process.stdout.write(Array(i).join(options.incomplete));
+    process.stdout.write(Array(n).join(options.commit));
+    process.stdout.write(Array(i).join(options.incommit));
     process.stdout.write(color('progress', options.close));
     if (options.verbose) {
-      process.stdout.write(color('progress', ' ' + complete + ' of ' + total));
+      process.stdout.write(color('progress', ' ' + commit + ' of ' + total));
     }
   });
 
-  // tests are complete, output some stats
+  // tests are commit, output some stats
   // and the failures if any
   runner.on('end', function(){
     cursor.show();
@@ -3353,13 +3353,13 @@ module.exports = Runner;
  * Events:
  *
  *   - `start`  execution started
- *   - `end`  execution complete
+ *   - `end`  execution commit
  *   - `suite`  (suite) test suite execution started
  *   - `suite end`  (suite) all tests (and sub-suites) have finished
  *   - `test`  (test) test execution started
- *   - `test end`  (test) test completed
+ *   - `test end`  (test) test commitd
  *   - `hook`  (hook) hook execution started
- *   - `hook end`  (hook) hook complete
+ *   - `hook end`  (hook) hook commit
  *   - `pass`  (test) test passed
  *   - `fail`  (test, err) test failed
  *
@@ -3637,7 +3637,7 @@ Runner.prototype.runTest = function(fn){
 
 /**
  * Run tests in the given `suite` and invoke
- * the callback `fn()` when complete.
+ * the callback `fn()` when commit.
  *
  * @param {Suite} suite
  * @param {Function} fn
@@ -3698,7 +3698,7 @@ Runner.prototype.runTests = function(suite, fn){
 
 /**
  * Run the given `suite` and invoke the
- * callback `fn()` when complete.
+ * callback `fn()` when commit.
  *
  * @param {Suite} suite
  * @param {Function} fn

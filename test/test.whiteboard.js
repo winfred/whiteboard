@@ -6,33 +6,33 @@ describe("whiteboard", function() {
     describe("#on", function() {
       it("binds a function to an event", function() {
         var called = false;
-        _.on("StrokeAction.focus.complete", function(){
+        _.on("StrokeAction.focus.commit", function(){
           called = true;
         });
-        _.emit('StrokeAction.focus.complete', {stroke: stroke});
+        _.emit('StrokeAction.focus.commit', {stroke: stroke});
         expect(called).to.be(true);
       });
 
       it("allows wildcard event registration", function() {
         var called = false;
-        _.on("StrokeAction.*.complete", function() {
+        _.on("StrokeAction.*.commit", function() {
           called = true;
         });
-        _.emit('StrokeAction.asdfasdf.complete', {stroke: stroke});
+        _.emit('StrokeAction.asdfasdf.commit', {stroke: stroke});
         expect(called).to.be(true);
       });
 
       it("allows OR regex conditions", function() {
         var called = false;
-        _.on("(this|that).*.complete", function() {
+        _.on("(this|that).*.commit", function() {
           called = true;
         });
 
-        _.emit("this.what.complete", {stroke: stroke});
+        _.emit("this.what.commit", {stroke: stroke});
         expect(called).to.be(true);
 
         called = false;
-        _.emit("that.why.complete", {stroke: stroke});
+        _.emit("that.why.commit", {stroke: stroke});
         expect(called).to.be(true);
 
       });
@@ -44,12 +44,12 @@ describe("whiteboard", function() {
         function myFun(){
           called = true;
         };
-        _.on("StrokeAction.focus.complete", myFun);
-        _.emit('StrokeAction.focus.complete', {stroke: stroke});
+        _.on("StrokeAction.focus.commit", myFun);
+        _.emit('StrokeAction.focus.commit', {stroke: stroke});
         expect(called).to.be(true);
         called = false;
-        _.off("StrokeAction.focus.complete", myFun);
-        _.emit("StrokeAction.focus.complete", {stroke: stroke});
+        _.off("StrokeAction.focus.commit", myFun);
+        _.emit("StrokeAction.focus.commit", {stroke: stroke});
         expect(called).to.be(false);
       });
     });

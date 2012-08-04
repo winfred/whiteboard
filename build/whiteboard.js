@@ -53,8 +53,8 @@ window.whiteboard = (function(){
   /* Private variables and functions */
   /* ------------------------------- */
 
-  var _brushes = {}, _callbacks = {},
-      _activeBrush, _previousX, _previousY;
+  var _callbacks = {}, _,
+      _previousX, _previousY;
 
   /**
    * Find all callbacks that match a specific event pattern
@@ -79,65 +79,13 @@ window.whiteboard = (function(){
     return results;
   };
 
-
-
-  /**
-   * cross browser add event method
-   *
-   * @param {Element|HTMLDocument} object
-   * @param {string} type
-   * @param {Function} callback
-   * @returns void
-   */
-  function _addEvent(object, type, callback) {
-    if (object.addEventListener) {
-      return object.addEventListener(type, callback, false);
-    }
-
-    object.attachEvent('on' + type, callback);
-  };
-
-  /**
-   * cross browser remove event method
-   *
-   * @param {Element|HTMLDocument} object
-   * @param {string} type
-   * @param {Function} callback
-   * @returns void
-   */
-  function _removeEvent(object, type, callback) {
-    if (object.removeEventListener) {
-      return object.removeEventListener(type, callback, false);
-    }
-
-    return object.detachEvent('on' + type, callback);
-  };
-
-  /**
-   * cross browser fire event method
-   *
-   * @param {Element|HTMLDocument} object
-   * @param {string} type
-   * @returns void
-   */
-  function _fireEvent (object, type, name, memo) {
-    var event;
-    if (document.createEvent) {
-      event = document.createEvent("HTMLEvents");
-      event.initEvent(type, true, true);
-      object.dispatchEvent(event);
-    } else {
-      event = document.createEventObject();
-      event.eventType = type;
-      object.fireEvent("on" + event.eventType, event);
-    }
-  }
-
   /**
    * Cross browser method to to update tracked mouse coords.
    * (current coords, previous coords, and deltas)
    *
    * @param {Event} e
+   * @return {whiteboard}
+   * @api private
    */
 
   function _updateMousePosition(e) {
@@ -161,67 +109,18 @@ window.whiteboard = (function(){
       _.deltaX = _.mouseX - _previousX;
       _.deltaY = _.mouseY - _previousY;
     }
+    return whiteboard;
   };
 
-  /**
-   * Determine if the event deserves a brush stroke
-   *
-   * @param {Event} e
-   * @return {boolean}
-   */
-  function _shouldPaintStroke(e) {
-    return _activeBrush && !e.defaultPrevented &&
-        !e.target.isContainedInElementOfClass('stroke') && 
-        !e.target.isContainedInElementOfClass('toolbox');
-  };
-
-  /**
-   *  Paint a stroke with the active brush. 
-   *  Handles key-binds for composition
-   *  Triggers package onPaint events (eventually)
-   *
-   *  preconditions:: _activeBrush != null
-   *      Use _shouldPaintStroke to be sure
-   *
-   *  @param {Event} e
-   * @returns void
-   */
-  function _paintStroke(e) {
-      _activeBrush.paintStroke();
-      if (!e.shiftKey) 
-        _activeBrush = null;
-  };
-
-  /**
-   *  Set the active brush using a tool's click event
-   *
-   *  @param {Event} e
-   * @returns void
-   */
-  function _setActiveBrush(e) {
-    if (e.preventDefault) e.preventDefault();  
-    _activeBrush = _brushFromEvent(e);
-  };
-
-  /**
-   * Get the brush corresponding to a tool's click event target
-   * 
-   * @param {Event} e
-   * @returns {Brush}
-   */
-  function _brushFromEvent(e) {
-    var name = e.currentTarget.attributes.getNamedItem('data-brush-name').value;
-    return _brushes[name];
-  }
 
    /*
    *  Expose the global whiteboard POJO.
+   *   as well as set "_" for local access
    */
-  return {
+  return _ = {
     /**
      * Expose package variables
      */
-    activeBrush: _activeBrush,
     htmlTag:  document.getElementsByTagName('html')[0],
 
 
@@ -229,25 +128,79 @@ window.whiteboard = (function(){
      * Expose cross browser event methods
      *  Just needed by the package, but here they are, public anyway
      */
-    addEvent: _addEvent,
-    removeEvent: _removeEvent,
-    fireEvent: _fireEvent,
 
+    /**
+     * cross browser add event method
+     *
+     * @param {Element|HTMLDocument} object
+     * @param {string} type
+     * @param {Function} callback
+     * @return {whiteboard}
+     * @api public
+     */
+    addEvent: function(object, type, callback) {
+      if (object.addEventListener) {
+        object.addEventListener(type, callback, false);
+      } else {
+        object.attachEvent('on' + type, callback);
+      }
+      return whiteboard;
+    },
+
+    /**
+     * cross browser remove event method
+     *
+     * @param {Element|HTMLDocument} object
+     * @param {string} type
+     * @param {Function} callback
+     * @return {whiteboard}
+     * @api public
+     */
+    removeEvent: function(object, type, callback) {
+      if (object.removeEventListener) {
+        object.removeEventListener(type, callback, false);
+      } else {
+        object.detachEvent('on' + type, callback);
+      }
+      return whiteboard;
+    },
+
+    /**
+     * cross browser fire event method
+     *
+     * @param {Element|HTMLDocument} object
+     * @param {string} type
+     * @returns {whiteboard}
+     * @api public
+     */
+    fireEvent: function(object, type, name, memo) {
+      var event;
+      if (document.createEvent) {
+        event = document.createEvent("HTMLEvents");
+        event.initEvent(type, true, true);
+        object.dispatchEvent(event);
+      } else {
+        event = document.createEventObject();
+        event.eventType = type;
+        object.fireEvent("on" + event.eventType, event);
+      }
+      return whiteboard;
+    },
 
     /**
      * Expose emitter methods
      *
-     * Events are named after their module and function (much like Backbone.js)
+     * Events are named after their module and function 
      * ------Examples------
      * 1.) listen for every time an element is focued
-     *    whiteboard.on("StrokeAction.focused.complete", myFunction);
+     *    whiteboard.on("StrokeAction.focus.commit", myFunction);
      *
-     * 2.) listen to any 'complete' strokeAction
-     *    whiteboard.StrokeAction.on("*.complete");
-     *    whiteboard.on("StrokeAction.*.complete"); //equivalent to the line above
+     * 2.) listen to any 'commit' strokeAction
+     *    whiteboard.StrokeAction.on("*.commit");
+     *    whiteboard.on("StrokeAction.*.commit"); //equivalent to the line above
      *
-     * 3.) listen to all complete actions (just Brush and StrokeActions at the moment)
-     *    whiteboard.on("*.complete");
+     * 3.) listen to all commit actions
+     *    whiteboard.on("*.commit");
      */
 
     /**
@@ -272,7 +225,6 @@ window.whiteboard = (function(){
      * @return {whiteboard} this
      * @api public
      */
-
     off: function(event, fn){
       var eventCallbacks = _callbacks[event];
       if (!eventCallbacks) return;
@@ -287,7 +239,6 @@ window.whiteboard = (function(){
       return this;
     },
 
-    
     /**
      * Trigger all event listeners for an event
      *
@@ -307,229 +258,416 @@ window.whiteboard = (function(){
       return this;
     },
 
-
     /**
-     * register a new brush type
-     * should be a DOM element with which the contents will be used to paint
-     * see HTML data-attribute API reference
+     * Initialize all of the submodules for a module
+     *  Uses the 'init' method pattern if available
      *
-     * @param {Element} element
-     * @returns {whiteboard}
-    */
-    addBrush: function(element) {
-      var name = element.attributes.getNamedItem('data-brush-name').value;
-      _brushes[name] = new this.Brush(element, name);
-      return this;
-    },
-
-    /**
-     * Get a known singleton brush object by name
-     *
-     * @param {string} name
-     * @returns {Brush}
+     * @param {Object} module
+     * @return void
+     * @api package
      */
-    getBrush: function(name) {
-      return _brushes[name];
+    initSubmodules: function(module) {
+      module = module || this;
+      for (var submodule in module) {
+        if (module.hasOwnProperty(submodule)
+            && submodule.charAt(0) >= 'A' && submodule.charAt(0) <= 'Z'
+            && typeof this[submodule].init === 'function') 
+        {
+          module[submodule].init();
+        }
+      }
     },
 
     /**
-     * find all the brushes in the document and register them
+     * Initialize all modules
      *
      * @return {whiteboard}
      */
     init: function() {
-      var brushes = document.getElementsByClassName('brush'),
-          brushButtons = document.getElementsByClassName('tool');
+      _.initSubmodules();
 
-      for (var i = 0; i < brushes.length; i++)
-        this.addBrush(brushes[i]);
-
-      for (var i = 0; i < brushButtons.length; i++)
-        _addEvent(brushButtons[i], 'click', _setActiveBrush);
-
-      _addEvent(document, 'mousemove', _updateMousePosition);
-      _addEvent(document, 'mousedown', function(e){
-        if (_shouldPaintStroke(e))
-          _paintStroke(e);
+      _.addEvent(document, 'mousemove', _updateMousePosition);
 
       return this;
-      });
     }
   };
 
 })();
 
 /**
- * A Brush knows its template and name, and it can paint new strokes 
- *    (copies of the template) onto the DOM
- *
- * @attribute {Element} element - a stroke template
- * @attribute {string} name 
+ * Expose the Brush module
  */
 whiteboard.Brush = (function(_){
 
-	var Brush = function(template, name){
-		this.template = template;
-		this.name = name;
-		var onpaint = template.attributes.getNamedItem('data-onpaint');
-		if (onpaint)
-			this.onpaint = onpaint.value.split(', ');
-	};
+  var _brushes = {},
+  /**
+   * A Brush knows its template and name, and it can paint new strokes 
+   *    (copies of the template) onto the DOM
+   *
+   * It's basically a stroke factory
+   *
+   * @attribute {Element} element - a stroke template
+   * @attribute {string} name 
+   */
+  Brush = function(template, name){
+    this.template = template;
+    this.name = name;
+    var onpaint = template.attributes.getNamedItem('data-onpaint');
+    if (onpaint)
+      this.onpaint = onpaint.value.split(', ');
+  };
 
-	/**
-	 * Paint a new copy of a brush's template onto the DOM
-	 * @returns void
-	 */
-	Brush.prototype.paintStroke = function() {
-		var stroke = document.createElement('div');
-		stroke.innerHTML = this.template.innerHTML;
-		stroke.style.position = 'absolute';
-		stroke.className = "stroke";
-		stroke.style.top = _.mouseY + "px";
-		stroke.style.left = _.mouseX + "px";
+  /**
+   * ------------------------------
+   * Module Variables/Methods
+   * ------------------------------
+   */
 
-		_.htmlTag.appendChild(stroke);
+  Brush.active = null;
 
-		//always focus a stroke on paint
-		_.StrokeAction.focus.invoke({currentTarget: stroke, target: stroke});
+  /**
+   * Find all brushes and their tool-buttons in the DOM
+   *   Register brushes with module
+   *   Set tool-button click handlers
+   *   
+   * @return void
+   * @api public
+   */
+  Brush.init = function() {
+    var brushes = document.getElementsByClassName('brush'),
+        brushButtons = document.getElementsByClassName('tool');
 
-		//trigger any onpaint events
-		if (this.onpaint) {
-			var action;
-			for (var i = this.onpaint.length - 1; i >= 0; i--) {
-				action = this.onpaint[i];
+    for (var i = 0; i < brushes.length; i++)
+      Brush.add(brushes[i]);
 
-				//firing traditional actions as well?
-				if (_.StrokeAction[action])
-					_.StrokeAction[action].invoke();
+    for (var i = 0; i < brushButtons.length; i++)
+      _.addEvent(brushButtons[i], 'click', _setActiveBrush);
 
-				//do we even need the onpaint specific actions?
-				if (false && _.StrokeAction.onpaint[action])
-					_.StrokeAction.onpaint[action](stroke);
-			};
-		}
+    _.addEvent(document, 'mousedown', function(e){
+      if (_shouldPaintStroke(e))
+        _paintStroke(e);
+    });
 
-		_initializeStrokeActionEventListeners(stroke); 
-	};
+  };
 
-	/**
-	 * Bind all of a stroke's whiteboard-actionable events to their elements
-	 *
-	 * @param {Element} stroke
-	 * @returns void
-	 */
-	function _initializeStrokeActionEventListeners(stroke) {
-      var actionableElement, action, trigger, i,
-      actions = stroke.getElementsByClassName('whiteboard-actionable');
+  /**
+   * register a new brush type
+   * should be a DOM element with which the contents will be used to paint
+   * see HTML data-attribute API reference
+   *
+   * @param {Element} element
+   * @returns {whiteboard}
+  */
+  Brush.add = function(element) {
+    var name = element.attributes.getNamedItem('data-brush-name').value;
+    _brushes[name] = new Brush(element, name);
+    return this;
+  };
 
-      for (i = actions.length - 1; i >= 0; i--) {
-        actionableElement = actions[i];
+  /**
+   * Get a known singleton brush object by name
+   *
+   * @param {string} name
+   * @returns {Brush}
+   */
+  Brush.get = function(name) {
+    return _brushes[name];
+  };
 
-        //supress all actionable ondragstarts - rage against ondragstart (for now)
-        actionableElement.ondragstart = function(){return false;};
 
-        action = actionableElement.attributes.getNamedItem('data-action').value;
-        trigger = actionableElement.attributes.getNamedItem('data-trigger').value;
-        _.addEvent(actionableElement, trigger, _invokeStrokeEvent);
-      }
+  /**
+   * ----------------
+   * Instance Methods
+   * ----------------
+   */
 
-      //all strokes respond to the focus action
-      _.addEvent(stroke, 'mousedown', _.StrokeAction.focus.invoke);
-
+  /**
+   * Paint a new copy of a brush's template onto the DOM
+   * Initialize all DOM listeners for strokeActions on the stroke.
+   *
+   * @returns void
+   */
+  Brush.prototype.paintStroke = function(stroke) {
+    if (!stroke) {
+      stroke = this.createStroke();
+    } else {
+      _.htmlTag.appendChild(stroke);
     }
 
-    /**
-     * Fire a stroke action's function for a specific event
-     *
-     * @param {Event} event
-     * @returns void
-     */
-    function _invokeStrokeEvent (event) {
-      var stroke = _strokeForElement(event.target),
-          action = event.currentTarget.attributes.getNamedItem('data-action').value,
-          content = stroke.getElementsByClassName('stroke-content')[0];
 
-      //before filters? listners to notify?
-      _.StrokeAction[action].invoke(event, content, stroke);
-    };
+    //TODO: trigger any onpaint events?
+
+    _.StrokeAction.initializeStrokeActionEventListeners(stroke); 
+    _.emit("Brush."+ name + ".paintStroke", {brush: this, stroke: stroke});
+  };
+
+  /**
+   * Initialize a new HTMLElement(stroke) 
+   *  append it to the DOM
+   *  and set it as the focused stroke
+   * 
+   * @return {HTMLElement}
+   * @api public
+   */
+  Brush.prototype.createStroke = function() {
+      var stroke = document.createElement('div');
+      stroke.innerHTML = this.template.innerHTML;
+      stroke.style.position = 'absolute';
+      stroke.className = "stroke";
+      stroke.style.top = _.mouseY + "px";
+      stroke.style.left = _.mouseX + "px";
+
+      _.htmlTag.appendChild(stroke);
+      _.StrokeAction.focus.invoke({currentTarget: stroke, target: stroke});      
+      return stroke;
+  };
+
+  /**
+   * ---------------
+   * Private Methods
+   * ---------------
+   */
+
+  
+  /**
+   * Get the brush corresponding to a tool's click event target
+   * 
+   * @param {Event} e
+   * @returns {Brush}
+   */
+  function _brushFromEvent(e) {
+    var name = e.currentTarget.attributes.getNamedItem('data-brush-name').value;
+    return _brushes[name];
+  };
+  
+  /**
+   *  Set the active brush using a tool's click event
+   *
+   *  @param {Event} e
+   *  @return {Brush}
+   *  @api private
+   */
+  function _setActiveBrush(e) {
+    if (e.preventDefault) e.preventDefault();  
+    Brush.active = _brushFromEvent(e);
+    return Brush;
+  };
+
+    /**
+   * Determine if the event deserves a brush stroke
+   *
+   * @param {Event} e
+   * @return {boolean}
+   * @api private
+   */
+  function _shouldPaintStroke(e) {
+    return Brush.active && !e.defaultPrevented &&
+        !e.target.isContainedInElementOfClass('stroke') && 
+        !e.target.isContainedInElementOfClass('toolbox');
+  };
+
+  /**
+   *  Paint a stroke with the active brush. 
+   *  Handles key-binds for composition
+   *
+   *  preconditions:: Brush.active != null
+   *      Use _shouldPaintStroke to be sure
+   *
+   *  @param {Event} e
+   *  @returns {Brush}
+   *  @api private
+   */
+  function _paintStroke(e) {
+    Brush.active.paintStroke();
+    if (!e.shiftKey) 
+      Brush.active = null;
+
+    return Brush;
+  };
+
+
+    return Brush;
+  })(whiteboard);
+
+/**
+ * Expose Canvas Module
+ */
+whiteboard.Canvas = (function(_){
+
+  /**
+   * ----------------
+   * Class Definition
+   * ----------------
+   */
+
+  /**
+   * A Canvas knows its ID (for serialization)
+   * its name (for user recognition)
+   * its strokes
+   *
+   */
+  var Canvas = function(opts) {
+    var now = (new Date()).toJSON();
+    opts = opts || {};
+    this.strokes = opts.strokes || {};
+    this.id = opts.id || now;
+    this.name = opts.name || now + "-Untitled";
+    this.createdAt = opts.createdAt || now;
+
+  };
+
+  /**
+   * ----------------
+   * Instance Methods
+   * ----------------
+   */
+  Canvas.prototype = {
+
+  };
+
+
+
+  /**
+   *  ---------------------------
+   *  Module Attributes/Functions
+   *  ---------------------------
+   */
+
+  /**
+   * The canvas that is currently being shown/edited
+   */
+  Canvas.active = null;
+
+  /**
+   * Module initialization
+   * Sets active canvas from settings
+   *
+   * Listens for changes to persist in canvas
+   *
+   * TODO: set up programmable canvas defaults (a la whiteboard.defaults = {})
+   *
+   */
+  Canvas.init = function() {
+    this.active = this.active || new Canvas();
+    _.on("(StrokeAction|Brush).*.commit", _createOrUpdateStroke);
+  };
+
+  /**
+   * -----------------
+   * Private Functions
+   * -----------------
+   */
+
+  /**
+   * Event handler for all *.commit events
+   *
+   * @param {WhiteboardEvent}
+   * @return void
+   * @api private
+   */
+  function _createOrUpdateStroke(event) {
+    Canvas.active.strokes[event.stroke.id] = event.stroke;
+  };
+
+
+  return Canvas;
+
+})(whiteboard);
+
+whiteboard.StrokeAction = (function(_){
+  var module = "StrokeAction";
 
     /**
      * Get the parent stroke container for a given actionable element
+     *   If the element provided is not contained in a stroke, 
+     *   provide the focused stroke.
      * 
      * @param {Element} element
      * @returns {Element} stroke
      * @throws {StrokeMissingException} 
+     * @api private
      */
     function _strokeForElement(element) {
+      if (!element) 
+        return _.StrokeAction.focusedStroke();
+
       var probe = element;
       while (!probe.hasClass('stroke') && probe !== _.htmlTag)
         probe = probe.parentElement;
 
       if (probe.hasClass('stroke'))
         return probe;
-      else throw new Error({
-        name: "StrokeMissingException",
-        message: "This element does not live inside a stroke.", 
-        element: element
-      });
+      else 
+        return whiteboard.StrokeAction.focusedStroke();
     };
 
-    return Brush;
-  })(whiteboard);
+    function _createInternalEvent(action, step, DOMevent, target) {
+      DOMevent = DOMevent || {};
+      var stroke = _strokeForElement(DOMevent.target);
 
-whiteboard.StrokeAction = (function(_){
-	var module = "StrokeAction";
-  
+      return {
+        action: action,
+        step: step,
+        stroke: stroke,
+        e: DOMevent,
+        target: target
+      };
+    };
+
   return {
     /**
      * Expose module scoped emitter
      */
-		on: function(event, fn) {
-			return _.on(module + "." + event, fn);
-		},
-		off: function(event, fn) {
-			return _.off(module + "." + event, fn);
-		},
-		emit: function(event) {
-			return _.emit(module + "." + event);
-		},
-		
-		/**
-		 * A functional extension for StrokeActions
-		 *   This takes care of hooking a StrokeAction's logic into the event emitter
-		 *
-		 * @param {String} name - of the new StrokeAction
-		 * @param {Object} actions - pojo of action steps
-		 * @return {StrokeAction}
-		 */
+    on: function(event, fn) {
+      return _.on(module + "." + event, fn);
+    },
+    off: function(event, fn) {
+      return _.off(module + "." + event, fn);
+    },
+    emit: function(event) {
+      return _.emit(module + "." + event);
+    },
+    
+    /**
+     * A functional extension for StrokeActions
+     *   This takes care of hooking a StrokeAction's logic into the event emitter
+     *
+     * @param {String} action - name of the new StrokeAction
+     * @param {Object} steps - pojo of action steps
+     * @return {StrokeAction}
+     */
 
-		extend: function(name, actions){
+    extend: function(action, steps){
+      if (steps.init) steps.init();
+
       var strokeAction = {
-				/**
-				 * Expose action scoped emitter
-				 */
-				on: function(event, fn) {
-					return _.on(module + "." + name + "." + event, fn);
-				},
-				off: function(event, fn) {
-					return _.off(module + "." + name + "." + event, fn);
-				},
-				emit: function(event) {
-					return _.emit(module + "." + name + "." + event);
-				}
-			};
-      for(var action in actions) {
-				/**
-				 * This is where the actions steps are wrapped with event emission.
-				 * Perhaps this is a good place for other kinds of hooks to tie in
-				 *  (before/after)
-				 */
-        strokeAction[action] = (function(action, fn){
-          return  function(){
-            fn.apply(strokeAction[action], arguments);
-            strokeAction.emit(action, arguments);
+        /**
+         * Expose action scoped emitter
+         */
+        on: function(step, fn) {
+          return _.on(module + "." + action + "." + step, fn);
+        },
+        off: function(step, fn) {
+          return _.off(module + "." + action + "." + step, fn);
+        },
+        emit: function(step) {
+          arguments[0] = module + "." + action + "." + step;
+          return _.emit.apply(arguments[0], arguments);
+        }
+      };
+
+      for(var step in steps) {
+        /**
+         * This is where the actions steps are wrapped with event emission.
+         * Perhaps this is a good place for other kinds of hooks to tie in
+         *  (before/after)
+         */
+        strokeAction[step] = (function(step, fn){
+          return  function(DOMevent){
+            fn.apply(strokeAction, arguments);
+            strokeAction.emit.apply(strokeAction, [step, _createInternalEvent(action, step, DOMevent, strokeAction.target)]);
           };
-        })(action,actions[action]);
+        })(step,steps[step]);
       }
 
       return strokeAction;
@@ -537,7 +675,7 @@ whiteboard.StrokeAction = (function(_){
 
 
     /* -----------------------------*/
-    /* StrokeAction Helpers  				*/
+    /* StrokeAction Helpers         */
     /* -----------------------------*/
 
 
@@ -622,7 +760,52 @@ whiteboard.StrokeAction = (function(_){
         }
 
         return char_code;
+    },
+
+    /**
+     * Fire a stroke action's function for a specific event
+     *
+     * @param {Event} event
+     * @returns void
+     * @api module 
+     */
+     invokeStrokeActionFromEvent: function(event) {
+      var stroke = _strokeForElement(event.target),
+          action = event.currentTarget.attributes.getNamedItem('data-action').value,
+          content = stroke.getElementsByClassName('stroke-content')[0];
+
+      //before filters? listners to notify?
+      _.StrokeAction[action].invoke(event, content, stroke);
+    },
+    
+  
+    /**
+     * Bind all of a stroke's whiteboard-actionable events to their elements
+     *
+     * @param {Element} stroke
+     * @returns void
+     * @api private
+     */
+    initializeStrokeActionEventListeners: function(stroke) {
+      var actionableElement, action, trigger, i,
+      actions = stroke.getElementsByClassName('whiteboard-actionable');
+
+      for (i = actions.length - 1; i >= 0; i--) {
+        actionableElement = actions[i];
+
+        //supress all actionable ondragstarts - rage against ondragstart (for now)
+        actionableElement.ondragstart = function(){return false;};
+
+        action = actionableElement.attributes.getNamedItem('data-action').value;
+        trigger = actionableElement.attributes.getNamedItem('data-trigger').value;
+        _.addEvent(actionableElement, trigger, _.StrokeAction.invokeStrokeActionFromEvent);
+      }
+
+      //all strokes respond to the focus action
+      _.addEvent(stroke, 'mousedown', _.StrokeAction.focus.invoke);
+
     }
+
   };
 
 })(whiteboard);
@@ -632,10 +815,15 @@ whiteboard.StrokeAction = (function(_){
  */
 whiteboard.StrokeAction.decreaseFontSize = whiteboard.StrokeAction
   .extend('decreaseFontSize', {
-      invoke: function(event, content) {
-        var pixels = Number(content.style.fontSize.split('px')[0]);
-        content.style.fontSize = (pixels - 2) + 'px';
-      }
+      invoke: function(event, content, stroke) {
+				this.target  = content;
+				this.stroke = stroke;
+				this.commit();
+      },
+			commit: function() {
+				var pixels = Number(this.content.style.fontSize.split('px')[0]);
+				this.content.style.fontSize = (pixels - 2) + 'px';
+			}       
   });
 
 /**
@@ -644,14 +832,33 @@ whiteboard.StrokeAction.decreaseFontSize = whiteboard.StrokeAction
 whiteboard.StrokeAction.destroy = (function(_,$){
 
   return $.extend('destroy',{
+    init: function() {
+      $.on('focus.invoke', function(){
+        $.destroy.invoke();
+      });
+      $.on('focus.commit', function(){
+        $.destroy.abort();
+      });
+    },
+    abort: function(event) {
+      _.removeEvent(document, 'keydown', $.destroy.process);
+    },
     invoke: function(event) {
+      _.addEvent(document, 'keydown', $.destroy.process);
+    },
+    process: function(event) {
+      if (event.preventDefault) event.preventDefault();
+      if (event.stopPropagation) event.stopPropagation();
+
       if ($.keyCodeFromEvent(event) === 8 && !event.target.hasClass('editable')) {
-        if (event.preventDefault) event.preventDefault();
-        if (event.stopPropagation) event.stopPropagation(); //pesky browser back on backspace
-        _.htmlTag.removeChild($.focusedStroke());
-        $.disableDocumentClickCatching($.focus.complete);
+        $.destroy.commit();
       }
       return false;
+    },
+    commit: function(event) {
+      this.target = $.focus.target;
+      $.focus.commit();
+      _.htmlTag.removeChild(this.target);
     }
   });
 
@@ -664,23 +871,23 @@ whiteboard.StrokeAction.destroy = (function(_,$){
 whiteboard.StrokeAction.editText = (function(_ ,$){
   return $.extend('editText', {
     invoke: function(event) {
-        var editableText = event.target;
-        editableText.contentEditable = "true";
-        editableText.id = "whiteboard-beingEdited"
+        this.target = event.target;
+        this.target.contentEditable = "true";
 
-        _.addEvent(editableText, 'keydown', $.editText.complete);
-        $.enableDocumentClickCatching($.editText.complete);
+
+        _.addEvent(this.target, 'keydown', $.editText.process);
+        $.enableDocumentClickCatching($.editText.process);
     },
+		process: function(event) {
+      if (!event.target.isContainedInElementOfClass('editable'))
+				$.editText.commit();
+		},
 
-    complete: function(event) {
-      if (!event.target.isContainedInElementOfClass('editable')) {
-        var editableText = document.getElementById('whiteboard-beingEdited');
-        editableText.contentEditable = "false";
-        editableText.id = "";
+    commit: function() {
+			this.target.contentEditable = "false";
 
-        _.removeEvent(editableText, 'keydown', $.editText.complete);
-        $.disableDocumentClickCatching($.editText.complete);
-      }
+			_.removeEvent(this.target, 'keydown', $.editText.process);
+			$.disableDocumentClickCatching($.editText.process);
     }
   });
 })(whiteboard, whiteboard.StrokeAction);
@@ -690,25 +897,40 @@ whiteboard.StrokeAction.editText = (function(_ ,$){
  */
 whiteboard.StrokeAction.focus = (function(_,$){
 
+  /**
+   * Unstyle the currently focused element and
+   * apply focused style to provided element, if available
+   *
+   * @param {Element} element
+   * @return void
+   * @api private
+   */
+  function _setTarget(element){
+    //remove existing target's focus style
+    if (this.target)
+      this.target.removeClass('whiteboard-focused');
+
+    this.target = element;
+
+    if (element)
+      element.addClass('whiteboard-focused');
+  };
+
+
   return $.extend('focus',{
     invoke: function(event) {
-      var focusedStroke = $.focusedStroke();
-      if (focusedStroke) focusedStroke.removeClass('whiteboard-focused');
-
-      _.addEvent(document, 'keyup', $.destroy.invoke);
-
-      event.currentTarget.addClass('whiteboard-focused');
-      $.enableDocumentClickCatching($.focus.complete);
+      _setTarget.call(this, event.currentTarget);
+      $.enableDocumentClickCatching($.focus.process);
     },
 
-    complete: function(event) {
-      if (!event.target.isContainedInElementOfClass('whiteboard-focused')) {
-        var stroke = $.focusedStroke();
-        
-        stroke.removeClass('whiteboard-focused');
-        $.disableDocumentClickCatching($.focus.complete);
-        _.removeEvent(document, 'keyup', $.destroy.invoke);
-      };
+    process: function(event) {
+      if (!event.target.isContainedInElementOfClass('whiteboard-focused'))
+        $.focus.commit();
+    },
+
+    commit: function() {
+      _setTarget.call(this, null);
+      $.disableDocumentClickCatching($.focus.process);
     }
   });
 
@@ -736,7 +958,7 @@ whiteboard.StrokeAction.move = (function(_,$){
     invoke: function(event, content, stroke) {
       stroke.id = "whiteboard-beingMoved";
       _.addEvent(_.htmlTag, 'mousemove', $.move.process);
-      _.addEvent(_.htmlTag, 'mouseup', $.move.complete);
+      _.addEvent(_.htmlTag, 'mouseup', $.move.commit);
     },
 
     process: function(event) {
@@ -745,9 +967,9 @@ whiteboard.StrokeAction.move = (function(_,$){
       movingElement.style.left = _.mouseX + "px";
     },
 
-    complete: function(event) {
+    commit: function(event) {
       document.getElementById('whiteboard-beingMoved').id = "";
-      _.removeEvent(_.htmlTag, 'mouseup', $.move.complete);
+      _.removeEvent(_.htmlTag, 'mouseup', $.move.commit);
       _.removeEvent(_.htmlTag, 'mousemove', $.move.process);
     }
   });
@@ -801,7 +1023,7 @@ whiteboard.StrokeAction.rotate = (function(_,$){
         var stroke = $.focusedStroke();
 
         _.addEvent(_.htmlTag, 'mousemove', $.rotate.process);
-        _.addEvent(_.htmlTag, 'mouseup', $.rotate.complete);
+        _.addEvent(_.htmlTag, 'mouseup', $.rotate.commit);
       },
 
       process: function(event) {
@@ -821,9 +1043,9 @@ whiteboard.StrokeAction.rotate = (function(_,$){
         strokeContent.applyCSSTransformation("rotate(" + degrees + "deg)");
       },
 
-      complete: function(event) {
+      commit: function(event) {
         _.removeEvent(_.htmlTag, 'mousemove', $.rotate.process);
-        _.removeEvent(_.htmlTag, 'mouseup', $.rotate.complete);
+        _.removeEvent(_.htmlTag, 'mouseup', $.rotate.commit);
       }
     });
 })(whiteboard, whiteboard.StrokeAction);
