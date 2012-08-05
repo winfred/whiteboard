@@ -18,12 +18,15 @@ describe("Stroke", function() {
 
     it("emits a Stroke.create.commit event", function() {
       var handlerCalled = false,
-          stroke;
-      _.on("Stroke.create.commit", function() {
+          stroke,
+          module = "";
+      _.on("Stroke.create.commit", function(event) {
         handlerCalled = true;
+        module = event.module;
       });
       stroke = _.Stroke.create(_.Brush.get('arrow'));
       expect(handlerCalled).to.be(true);
+      expect(module).to.be("Stroke");
       _.htmlTag.removeChild(stroke);
     });
   });
