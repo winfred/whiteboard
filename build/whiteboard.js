@@ -389,7 +389,7 @@ whiteboard.Brush = (function(_){
    */
   Brush.prototype.paintStroke = function(stroke) {
     if (!stroke) {
-      stroke = this.createStroke();
+      stroke = _.Stroke.create(this);
     } else {
       _.htmlTag.appendChild(stroke);
     }
@@ -397,31 +397,9 @@ whiteboard.Brush = (function(_){
 
     //TODO: trigger any onpaint events?
 
-    _.StrokeAction.initializeStrokeActionEventListeners(stroke); 
-    _.emit("Brush."+ name + ".paintStroke", {brush: this, stroke: stroke});
 		return stroke; 
   };
 
-  /**
-   * Initialize a new HTMLElement(stroke) 
-   *  append it to the DOM
-   *  and set it as the focused stroke
-   * 
-   * @return {HTMLElement}
-   * @api public
-   */
-  Brush.prototype.createStroke = function() {
-      var stroke = document.createElement('div');
-      stroke.innerHTML = this.template.innerHTML;
-      stroke.style.position = 'absolute';
-      stroke.className = "stroke";
-      stroke.style.top = _.mouseY + "px";
-      stroke.style.left = _.mouseX + "px";
-
-      _.htmlTag.appendChild(stroke);
-      _.StrokeAction.focus.invoke({currentTarget: stroke, target: stroke});      
-      return stroke;
-  };
 
   /**
    * ---------------
@@ -523,6 +501,28 @@ whiteboard.Canvas = (function(_){
    * ----------------
    */
   Canvas.prototype = {
+    createOrUpdateStroke: function(stroke) {
+     var strokeExists = this.strokes.hasOwnProperty(stroke.id);
+     this.strokes[stroke.id] = stroke;
+
+     if (strokeExists) {
+       _.emit('Canvas.strokes.update', _buildStrokesEvent.call(this,stroke, 'update'));
+     } else {
+       _.emit("Canvas.strokes.create", _buildStrokesEvent.call(this, stroke, 'create'));
+     }
+    },
+    handleStrokeChange: function(event) {
+      if (event.action === 'focus' || event.action === 'unfocus')
+        return;
+
+      if (event.action === 'destroy') {
+        delete this.strokes[event.target.id];
+        _.emit('Canvas.strokes.destroy', _buildStrokesEvent.call(this, event.target, 'destroy'));
+      } else {
+        this.createOrUpdateStroke(event.target);
+      }
+  
+    }
 
   };
 
@@ -550,7 +550,9 @@ whiteboard.Canvas = (function(_){
    */
   Canvas.init = function() {
     this.active = this.active || new Canvas();
-    _.on("(StrokeAction|Brush).*.commit", _createOrUpdateStroke);
+    _.on("(StrokeAction|Stroke).*.commit", function(event){
+      Canvas.active.handleStrokeChange(event)
+    });
   };
 
   /**
@@ -559,20 +561,175 @@ whiteboard.Canvas = (function(_){
    * -----------------
    */
 
-  /**
-   * Event handler for all *.commit events
-   *
-   * @param {WhiteboardEvent}
-   * @return void
-   * @api private
-   */
-  function _createOrUpdateStroke(event) {
-    Canvas.active.strokes[event.target.id] = event.target;
+  function _buildStrokesEvent(stroke, action) {
+    return {
+      action: action,
+      target: {
+        canvas: this,
+        stroke: stroke
+      }
+    }
   };
 
 
   return Canvas;
 
+})(whiteboard);
+
+whiteboard.Stroke = (function(_){
+
+  var Stroke = {
+    includedBy: function(stroke) {
+      stroke.whiteboard = {};
+      for (var fnName in Stroke.prototype) {
+        stroke[fnName] = (function(stroke, fnName){
+          return function() {
+            return Stroke.prototype[fnName].apply(stroke, arguments);
+          }
+        })(stroke, fnName);
+      }
+    },
+    /**
+     * Initialize a new HTMLElement(stroke) 
+     *  append it to the DOM
+     *  and set it as the focused stroke
+     * 
+     * @param {Brush}
+     * @return {HTMLElement}
+     * @api public
+     */
+    create: function(brush) {
+      var stroke = document.createElement('div');
+      stroke.innerHTML = brush.template.innerHTML;
+    
+      stroke.style.position = 'absolute';
+      stroke.className = "stroke";
+      stroke.style.top = _.mouseY + "px";
+      stroke.style.left = _.mouseX + "px";
+      stroke.id = brush.name + "#" + (new Date()).toJSON();
+
+      stroke.brush = brush;
+
+      _.htmlTag.appendChild(stroke);
+      _.Stroke.includedBy(stroke);
+      _initializeActionListeners.call(stroke);
+
+      _.emit("Stroke.create.commit", {
+          target: stroke,
+          action: 'create',
+          step: 'commit'
+      });
+
+      _.StrokeAction.focus.invoke({currentTarget: stroke, target: stroke});      
+      return stroke;
+
+    }
+  };
+
+  /**
+   *  -----------------
+   *  Private Functions
+   *  -----------------
+   */
+
+  /**
+   * Bind all of a stroke's whiteboard-actionable events to their elements
+   *
+   * @param {Element} stroke
+   * @returns void
+   * @api private
+   */
+  function _initializeActionListeners() {
+    var actionableElement, action, trigger, i,
+    actions = this.getElementsByClassName('whiteboard-actionable');
+
+    for (i = actions.length - 1; i >= 0; i--) {
+      actionableElement = actions[i];
+
+      //supress all actionable ondragstarts - rage against ondragstart (for now)
+      actionableElement.ondragstart = function(){return false;};
+
+      action = actionableElement.attributes.getNamedItem('data-action').value;
+      trigger = actionableElement.attributes.getNamedItem('data-trigger').value;
+      _.addEvent(actionableElement, trigger, _.StrokeAction.invokeStrokeActionFromEvent);
+    }
+
+    //all strokes respond to the focus action
+    _.addEvent(this, 'mousedown', _.StrokeAction.focus.invoke);
+
+  };
+ 
+  Stroke.prototype = {
+
+    /**
+     * Update this stroke HTMLElement's standard attributes as well as
+     * the whiteboard attributes pojo.
+     *
+     * Supports deep nesting of attributes. That is to say, that calling 
+     *
+     * stroke.upateWhiteboardAttributes({
+     *   style: {
+     *     color: 'FFF'
+     *   }
+     * });
+     *
+     * Will *only* update the style.color attribute
+     *
+     * 
+     * @param {Object} - the attributes to update
+     * ------internal/recursive params-----------
+     * @param {Object} - an attribute subnode to traverse and call setters on
+     * @param {Object} - a whiteboard subnode to traverse and call setters on
+     * ------------------------------------------
+     * @return void
+     * @api public
+     */
+    updateWhiteboardAttributes: function(opts, node, wbNode) {
+      node = node || this;
+      wbNode = wbNode || this.whiteboard;
+      for (var opt in opts) {
+        if (typeof opts[opt] === 'object') {
+          wbNode[opt] = wbNode[opt] || {};
+          this.updateWhiteboardAttributes(opts[opt], node[opt], wbNode[opt]);
+        } else {
+          wbNode[opt] = node[opt] = opts[opt];
+        }
+      }
+    },
+
+         
+    /**
+     * A cross-browser outer html function
+     * @return {String}
+     * @api public
+     */
+    whiteboardHTML: function() {
+      return this.outerHTML || (function(node) {
+        var div = document.createElement('div'), h;
+        div.appendChild(node.cloneNode(true));
+        h = div.innerHTML;
+        div = null;
+        return h;
+      })(this);
+    },
+
+    /**
+     * Serialize the stroke for persistence
+     * Avoiding premature optimization by just storing the HTML for now.
+     * TODO: find a better way to serialize a stroke
+     *
+     * @return {Object}
+     * @api public
+     */
+    serialize: function() {
+      return {
+        id: this.id,
+        brush: this.brush.name,
+        html: this.whiteboardHTML()
+      }
+    }
+  };
+  return Stroke;
 })(whiteboard);
 
 whiteboard.StrokeAction = (function(_){
@@ -734,46 +891,16 @@ whiteboard.StrokeAction = (function(_){
     /**
      * Fire a stroke action's function for a specific event
      *
-     * @param {Event} event
+     * @param {HTMLEvent} event
      * @returns void
      * @api module 
      */
      invokeStrokeActionFromEvent: function(event) {
-      var stroke = _.StrokeAction.strokeForElement(event.target),
-          action = event.currentTarget.attributes.getNamedItem('data-action').value,
-          content = stroke.getElementsByClassName('stroke-content')[0];
-
-      //before filters? listners to notify?
-      _.StrokeAction[action].invoke(event, content, stroke);
+      var action = event.currentTarget.attributes.getNamedItem('data-action').value;
+      _.StrokeAction[action].invoke(event);
     },
     
   
-    /**
-     * Bind all of a stroke's whiteboard-actionable events to their elements
-     *
-     * @param {Element} stroke
-     * @returns void
-     * @api private
-     */
-    initializeStrokeActionEventListeners: function(stroke) {
-      var actionableElement, action, trigger, i,
-      actions = stroke.getElementsByClassName('whiteboard-actionable');
-
-      for (i = actions.length - 1; i >= 0; i--) {
-        actionableElement = actions[i];
-
-        //supress all actionable ondragstarts - rage against ondragstart (for now)
-        actionableElement.ondragstart = function(){return false;};
-
-        action = actionableElement.attributes.getNamedItem('data-action').value;
-        trigger = actionableElement.attributes.getNamedItem('data-trigger').value;
-        _.addEvent(actionableElement, trigger, _.StrokeAction.invokeStrokeActionFromEvent);
-      }
-
-      //all strokes respond to the focus action
-      _.addEvent(stroke, 'mousedown', _.StrokeAction.focus.invoke);
-
-    },
     /**
      * Get the parent stroke container for a given actionable element
      *   If the element provided is not contained in a stroke, 
@@ -826,8 +953,10 @@ whiteboard.StrokeAction.destroy = (function(_,$){
 
   return $.extend('destroy',{
     invoke: function(event) {
+      if (event.preventDefault) event.preventDefault();
       this.target = $.strokeForElement(event.target);
       this.commit();
+      return false;
     },
     commit: function(event) {
       _.htmlTag.removeChild(this.target);

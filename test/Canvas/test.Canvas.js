@@ -26,7 +26,7 @@ describe("whiteboard.Canvas", function() {
           expect(Canvas.active).to.be.ok();
         });
 
-        it("adds/updates strokes on StrokeAction|Brush.*.commit events", function() {
+        it("adds/updates strokes on StrokeAction|Stroke.*.commit events", function() {
           var stroke =  {id: "hey"};
           _.emit("StrokeAction.hey.commit", {target: stroke});
           expect(Canvas.active.strokes["hey"]).to.eql(stroke);
@@ -45,6 +45,7 @@ describe("whiteboard.Canvas", function() {
         expect(c.hasOwnProperty("strokes")).to.be(true);
         expect(typeof c.strokes).to.be('object');
       });
+
     });
     describe("#id", function() {
       it("is a string", function() {
