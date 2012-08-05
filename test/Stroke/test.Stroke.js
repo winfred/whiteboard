@@ -9,6 +9,24 @@ describe("Stroke", function() {
 		});
 	});
 
+  describe(".create", function() {
+    it("focuses the recently created stroke", function() {
+      var stroke = _.Stroke.create(_.Brush.get('arrow'));
+      expect(stroke.hasClass('whiteboard-focused')).to.be(true);
+      _.htmlTag.removeChild(stroke);
+    });
+
+    it("emits a Stroke.create.commit event", function() {
+      var handlerCalled = false,
+          stroke;
+      _.on("Stroke.create.commit", function() {
+        handlerCalled = true;
+      });
+      stroke = _.Stroke.create(_.Brush.get('arrow'));
+      expect(handlerCalled).to.be(true);
+      _.htmlTag.removeChild(stroke);
+    });
+  });
 	describe("#serialize", function(){
 
 		var stroke, serialized;
@@ -28,6 +46,10 @@ describe("Stroke", function() {
 
 		it("has the stroke's id", function() {
 			expect(serialized.id).to.be.a('string');	
+		});
+
+		it("has the stroke's brush name", function() {
+			expect(serialized.brush).to.be.a('string');
 		});
 
 		it("has the stroke's html content (for now)", function() {
