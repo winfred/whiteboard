@@ -27,9 +27,9 @@ describe("whiteboard.Canvas", function() {
         });
 
         it("adds/updates strokes on StrokeAction|Stroke.*.commit events", function() {
-          var stroke =  {id: "hey"};
-          _.emit("StrokeAction.hey.commit", {target: stroke});
-          expect(Canvas.active.strokes["hey"]).to.eql(stroke);
+					var stroke =  _.test.helpers.paintStroke();
+          _.emit("StrokeAction.hey.commit", {target: stroke, stroke: stroke});
+          expect(Canvas.active.strokes[stroke.id].id).to.be(stroke.id);
         });
 
       });

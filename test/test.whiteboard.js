@@ -1,15 +1,14 @@
 describe("whiteboard", function() {
   var _ = whiteboard;
   describe("events", function() {
-    var target = {id: "hey"};
-
+    var target = _.test.helpers.paintStroke();
     describe("#on", function() {
       it("binds a function to an event", function() {
         var called = false;
         _.on("StrokeAction.focus.commit", function(){
           called = true;
         });
-        _.emit('StrokeAction.focus.commit', {target: target});
+        _.emit('StrokeAction.focus.commit', {target: target, stroke: target});
         expect(called).to.be(true);
       });
 
@@ -18,7 +17,7 @@ describe("whiteboard", function() {
         _.on("StrokeAction.*.commit", function() {
           called = true;
         });
-        _.emit('StrokeAction.asdfasdf.commit', {target: target});
+        _.emit('StrokeAction.asdfasdf.commit', {target: target, stroke: target});
         expect(called).to.be(true);
       });
 
@@ -28,11 +27,11 @@ describe("whiteboard", function() {
           called = true;
         });
 
-        _.emit("this.what.commit", {target: target});
+        _.emit("this.what.commit", {target: target, stroke: target});
         expect(called).to.be(true);
 
         called = false;
-        _.emit("that.why.commit", {target: target});
+        _.emit("that.why.commit", {target: target, stroke: target});
         expect(called).to.be(true);
 
       });
@@ -45,11 +44,11 @@ describe("whiteboard", function() {
           called = true;
         };
         _.on("StrokeAction.focus.commit", myFun);
-        _.emit('StrokeAction.focus.commit', {target: target});
+        _.emit('StrokeAction.focus.commit', {target: target, stroke: target});
         expect(called).to.be(true);
         called = false;
         _.off("StrokeAction.focus.commit", myFun);
-        _.emit("StrokeAction.focus.commit", {target: target});
+        _.emit("StrokeAction.focus.commit", {target: target, stroke: target});
         expect(called).to.be(false);
       });
     });
