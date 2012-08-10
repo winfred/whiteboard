@@ -7,7 +7,7 @@ describe("StrokeAction.focus", function() {
       var stroke = _.test.helpers.paintStroke();
       $.focus.invoke({currentTarget: stroke});
       expect(stroke.hasClass('whiteboard-focused')).to.be(true);
-      _.htmlTag.removeChild(stroke);
+      _.bodyTag.removeChild(stroke);
       stroke.removeFromDOM();
     });
   });

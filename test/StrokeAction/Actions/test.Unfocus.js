@@ -9,7 +9,7 @@ describe("StrokeAction.unfocus", function() {
 			$.unfocus.target = stroke;
 			$.unfocus.commit();
 			expect(stroke.hasClass('whiteboard-focused')).to.be(false);
-			_.htmlTag.removeChild(stroke);
+			_.bodyTag.removeChild(stroke);
 		});
 	});
 
