@@ -15,6 +15,40 @@ describe("whiteboard.Canvas", function() {
 
       });
 
+      describe(".list", function() {
+        before(function(){
+          _.Store.init();
+        });
+
+        it("is automatically updated as new Canvases are discovered by Stores", function() {
+          expect(Canvas.list).to.not.be.empty();
+        });
+
+        it("contains references to canvas wrappers", function() {
+          expect(Canvas.list[0]).to.have.property("source");
+          expect(Canvas.list[0]).to.have.property("target");
+        });
+
+        describe("Canvas Wrapper interface to Store", function() {
+          var canvas;
+          before(function() {
+            canvas = Canvas.list[0];
+          });
+
+          describe("#source", function() {
+            it("is one of the Stores found under whiteboard.Store", function() {
+              expect(_.Store).to.have.property("Local",canvas.source);
+            });
+          });
+          describe("#target", function() {
+            it("is the toJSON pojo of a canvas", function() {
+              expect(canvas.target).to.eql(c.toJSON());
+            });
+          });
+        });
+      })
+
+    });
     });
 
     describe("functions", function() {
@@ -36,7 +70,6 @@ describe("whiteboard.Canvas", function() {
 
     });
 
-  });
 
 
   describe("instance attributes", function() {
