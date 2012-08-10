@@ -49,7 +49,6 @@ describe("Canvas", function() {
       })
 
     });
-    });
 
     describe("functions", function() {
 
@@ -70,6 +69,7 @@ describe("Canvas", function() {
 
     });
 
+  });
 
 
   describe("instance ", function() {
