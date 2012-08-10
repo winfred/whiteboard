@@ -4,7 +4,7 @@ describe("Stroke", function() {
     it("attaches Stroke module functions to the provided object", function() {
       var stroke = _.test.helpers.paintStroke();
       _.Stroke.includedBy(stroke);
-      expect(typeof stroke.serialize).to.be('function');
+      expect(typeof stroke.toJSON).to.be('function');
       stroke.removeFromDOM();
     });
   });
@@ -30,13 +30,13 @@ describe("Stroke", function() {
       stroke.removeFromDOM();
     });
   });
-  describe("#serialize", function(){
+  describe("#toJSON", function(){
 
     var stroke, serialized;
 
     beforeEach(function() {
       stroke = _.test.helpers.paintStroke();
-      serialized = stroke.serialize();
+      serialized = stroke.toJSON();
     });
 
     afterEach(function() {
