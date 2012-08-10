@@ -1,4 +1,4 @@
-describe("whiteboard.Canvas", function() {
+describe("Canvas", function() {
   var _ = whiteboard,
       Canvas = _.Canvas;
       c = new Canvas();
@@ -97,7 +97,7 @@ describe("whiteboard.Canvas", function() {
 
     describe("methods", function() {
 
-      describe("set", function() {
+      describe("#set", function() {
         it("sets arbitrary key/value pairs", function() {
           c.set("what", "the");
           expect(c.what).to.be("the");
@@ -110,6 +110,23 @@ describe("whiteboard.Canvas", function() {
           });
           c.set("hey", "there");
           expect(handlerCalled).to.be(true);
+        });
+      });
+
+      describe("#toJSON", function() {
+        var pojo;
+        before(function() {
+          pojo = c.toJSON();
+        });
+        it("returns a POJO safe for JSON.stringify", function() {
+          expect(pojo).to.be.a('object');
+          expect(function(){
+            JSON.stringify(pojo);
+          }).to.not.throwException();
+        });
+
+        it("converts the strokes hash of HTMLElements to an array of ids", function() {
+          expect(pojo.strokes).to.be.an('array');
         });
       });
     });
