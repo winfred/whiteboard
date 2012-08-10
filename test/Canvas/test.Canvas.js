@@ -72,24 +72,45 @@ describe("whiteboard.Canvas", function() {
 
 
 
-  describe("instance attributes", function() {
-    describe("#strokes", function() {
-      it("is a POJO", function() {
-        expect(c.hasOwnProperty("strokes")).to.be(true);
-        expect(typeof c.strokes).to.be('object');
-      });
+  describe("instance ", function() {
+    describe("attributes", function() {
+      describe("#strokes", function() {
+        it("is a POJO", function() {
+          expect(c.hasOwnProperty("strokes")).to.be(true);
+          expect(typeof c.strokes).to.be('object');
+        });
 
-    });
-    describe("#id", function() {
-      it("is a string", function() {
-        expect(c.hasOwnProperty("id")).to.be(true);
-        expect(typeof c.id).to.be('string');
+      });
+      describe("#id", function() {
+        it("is a string", function() {
+          expect(c.hasOwnProperty("id")).to.be(true);
+          expect(typeof c.id).to.be('string');
+        });
+      });
+      describe("#name", function() {
+        it("is a string", function() {
+          expect(c.hasOwnProperty("name")).to.be(true);
+          expect(typeof c.name).to.be('string');
+        });
       });
     });
-    describe("#name", function() {
-      it("is a string", function() {
-        expect(c.hasOwnProperty("name")).to.be(true);
-        expect(typeof c.name).to.be('string');
+
+    describe("methods", function() {
+
+      describe("set", function() {
+        it("sets arbitrary key/value pairs", function() {
+          c.set("what", "the");
+          expect(c.what).to.be("the");
+        });
+        
+        it("emits a Canvas.update.commit event", function() {
+          var handlerCalled = false;
+          _.on("Canvas.update.commit", function() {
+            handlerCalled = true;
+          });
+          c.set("hey", "there");
+          expect(handlerCalled).to.be(true);
+        });
       });
     });
   });
