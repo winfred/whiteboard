@@ -1,19 +1,57 @@
+/**
+ * Cross browser removeClass method
+ *
+ * @param {String}
+ * @return void
+ * @api public
+ */
 HTMLElement.prototype.removeClass = HTMLElement.prototype.removeClass || function(className) {
-  this.className = this.className.split(" "+className).join('');
+  if (this.classList && this.classList.remove)
+    return this.classList.remove(className);
+  else
+    return this.className = this.className.split(" "+className).join('');
 };
 
-HTMLElement.prototype.addClass = HTMLElement.prototype.addClass || function(className) {
-  this.className += " " + className;
+/**
+ * Cross browser addClass method
+ *
+ * @param {String}
+ * @return void
+ * @api public
+ */
+HTMLElement.prototype.addClass = HTMLElement.prototype.addClass || function(className){
+  if(this.classList && this.classList.add) 
+    return this.classList.add(className);
+  else
+    return this.className += " " + className;
 };
 
+/**
+ * Cross browser hasClass check
+ *
+ * @param {String}
+ * @return {boolean}
+ * @api public
+ */
 HTMLElement.prototype.hasClass = HTMLElement.prototype.hasClass || function(className) {
-  var classes = this.className.split(' ');
-  for (var i = classes.length - 1; i >= 0; i--) {
-    if (classes[i] === className) return true;
-  };
-  return false;
+  if (this.classList && this.classList.contains) {
+    return this.classList.contains(className);
+  } else {
+    var classes = this.className.split(' ');
+    for (var i = classes.length - 1; i >= 0; i--) {
+      if (classes[i] === className) return true;
+    };
+    return false;
+  }
 };
 
+/**
+ * Cross browser method to apply a CSS3 transformation to an element
+ *
+ * @param {String}
+ * @return void
+ * @api public
+ */
 HTMLElement.prototype.applyCSSTransformation = HTMLElement.prototype.applyCSSTransformation || function(transformation) {
   if (this.style.webkitTransform != undefined)
     this.style.webkitTransform = transformation;
@@ -37,7 +75,6 @@ HTMLElement.prototype.applyCSSTransformation = HTMLElement.prototype.applyCSSTra
  * @param {string} className
  * @return {boolean}
  */
-
 HTMLElement.prototype.isContainedInElementOfClass = HTMLElement.prototype.isContainedInElementOfClass || 
   function(className) {
     var probe = this;
@@ -97,14 +134,14 @@ window.whiteboard = (function(){
                        event.clientX + 
                           (document.documentElement.scrollLeft ? 
                               document.documentElement.scrollLeft : 
-                              _.htmlTag.scrollLeft);
+                              _.container.scrollLeft);
 
       _.mouseY = (window.Event) ? 
                        e.pageY : 
                        event.clientY + 
                           (document.documentElement.scrollTop ? 
                               document.documentElement.scrollTop : 
-                              _.htmlTag.scrollTop);
+                              _.container.scrollTop);
 
       _.deltaX = _.mouseX - _previousX;
       _.deltaY = _.mouseY - _previousY;
@@ -121,8 +158,6 @@ window.whiteboard = (function(){
     /**
      * Expose package variables
      */
-    htmlTag:  document.getElementsByTagName('html')[0],
-
 
     /**
      * Expose cross browser event methods
@@ -283,10 +318,13 @@ window.whiteboard = (function(){
      *
      * @return {whiteboard}
      */
-    init: function() {
+    init: function(opts) {
+      opts = opts || {};
       _.initSubmodules();
 
       _.addEvent(document, 'mousemove', _updateMousePosition);
+
+      this.container = opts.container || document.getElementsByTagName('html')[0];
 
       return this;
     }
@@ -391,7 +429,7 @@ whiteboard.Brush = (function(_){
     if (!stroke) {
       stroke = _.Stroke.create(this);
     } else {
-      _.htmlTag.appendChild(stroke);
+      _.container.appendChild(stroke);
     }
 
 
@@ -470,6 +508,10 @@ whiteboard.Brush = (function(_){
 
 /**
  * Expose Canvas Module
+ *
+ * The Canvas is essentially a unique collection of strokes.
+ * This module also normalizes StrokeAction events so that DB-adapter listeners 
+ *   only need to tune into Canvas events.
  */
 whiteboard.Canvas = (function(_){
 
@@ -492,23 +534,33 @@ whiteboard.Canvas = (function(_){
     this.id = opts.id || now;
     this.name = opts.name || now + "-Untitled";
     this.createdAt = opts.createdAt || now;
-
+    _.emit("Canvas.create.commit", {module: 'Canvas', action: 'create', step: 'commit', target: { canvas: this}});
   };
 
   /**
-   * ----------------
    * Instance Methods
-   * ----------------
    */
   Canvas.prototype = {
+    /**
+     * Set an attribute on the canvas (such as name)
+     * 
+     * @param {String}
+     * @param {any}
+     * @return {Canvas}
+     */
+    set: function(attribute, value) {
+      this[attribute] = value;
+      _.emit('Canvas.update.commit', {module: 'Canvas', action: 'update', step: 'commit', target: {canvas: this}});
+      return this;
+    },
     createOrUpdateStroke: function(stroke) {
      var strokeExists = this.strokes.hasOwnProperty(stroke.id);
      this.strokes[stroke.id] = stroke;
 
      if (strokeExists) {
-       _.emit('Canvas.strokes.update', _buildStrokesEvent.call(this,stroke, 'update'));
+       _.emit('Canvas.strokes.update.commit', _buildStrokesEvent.call(this,stroke, 'update'));
      } else {
-       _.emit("Canvas.strokes.create", _buildStrokesEvent.call(this, stroke, 'create'));
+       _.emit("Canvas.strokes.create.commit", _buildStrokesEvent.call(this, stroke, 'create'));
      }
     },
     handleStrokeChange: function(event) {
@@ -516,12 +568,26 @@ whiteboard.Canvas = (function(_){
         return;
 
       if (event.action === 'destroy') {
-        delete this.strokes[event.target.id];
-        _.emit('Canvas.strokes.destroy', _buildStrokesEvent.call(this, event.target, 'destroy'));
+        delete this.strokes[event.stroke.id];
+        _.emit('Canvas.strokes.destroy.commit', _buildStrokesEvent.call(this, event.stroke, 'destroy'));
       } else {
-        this.createOrUpdateStroke(event.target);
+        this.createOrUpdateStroke(event.stroke);
       }
-  
+    },
+    /**
+     * Serialize the canvas, removing all ciruclar references and Objects
+     *   Specifically, the strokes hash references HTMLElements is converted into 
+     *   an array of IDs
+     *
+     * @return {Object}
+     * @api public
+     */
+    toJSON: function() {
+      var clone = _.Store.clone(this);
+      clone.strokes = [];
+      for (var strokeId in this.strokes)
+        clone.strokes.push(strokeId);
+      return clone;
     }
 
   };
@@ -549,10 +615,13 @@ whiteboard.Canvas = (function(_){
    *
    */
   Canvas.init = function() {
+		this.all = this.all || [];
     this.active = this.active || new Canvas();
-    _.on("(StrokeAction|Stroke).*.commit", function(event){
+    _.on("^(StrokeAction|Stroke).(?!(un)?focus)*commit", function(event){
       Canvas.active.handleStrokeChange(event)
     });
+    _.on("Store.Canvas.found",_registerCanvas); 
+      
   };
 
   /**
@@ -564,16 +633,121 @@ whiteboard.Canvas = (function(_){
   function _buildStrokesEvent(stroke, action) {
     return {
       action: action,
+      module: 'Canvas.strokes',
       target: {
         canvas: this,
         stroke: stroke
       }
     }
   };
+  
+  function _registerCanvas(canvas) {
+    Canvas.all.push(canvas);
+    _refreshCanvasList(canvas);
+  };
 
+  function _refreshCanvasList() {
+    var list = document.getElementsByClassName("canvas-list"),
+        ul,
+        item;
+    for (var i = list.length - 1; i >= 0; i--) {
+      ul = list[i].children[0];
+      ul.innerHTML = "";
+      for (var j = Canvas.all.length - 1; j >= 0; j--) {
+        item = document.createElement("li");
+        item.innerHTML = "<a href='#' class='canvas-link' data-canvas='"+j+"'>"+
+                            Canvas.all[j].target.name+"</a";
+        ul.appendChild(item);
+        _.addEvent(item, 'click', _loadCanvas); 
+      }
+    }
+  };
+
+  function _loadCanvas(event) {
+    var index = event.target.getAttribute('data-canvas'),
+        canvas = Canvas.all[index],
+        paintedStrokes = document.getElementsByClassName("stroke");
+    for (var i = paintedStrokes.length - 1; i >= 0; i--)
+      paintedStrokes[i].removeFromDOM();
+ 
+    Canvas.active = canvas.source.load(canvas.target);
+    
+    var focusedStrokes = document.getElementsByClassName("whiteboard-focused");
+    for (var i = focusedStrokes.length - 1; i >= 0; i--)
+      focusedStrokes[i].removeClass("whiteboard-focused");
+    return false;
+  };
 
   return Canvas;
 
+})(whiteboard);
+
+/**
+ * All stores will be referenced in the whiteboard.Store namespace.
+ *
+ * Stores must adhere to the following interface
+ *
+ * @interface Store 
+ *   @attribute {String} name - the display name of the store.
+ *        ("Local" for local storage or perhaps "Cloud" for a webserver)
+ *
+ *   @function load
+ *        Instantiates a canvas of the provided ID from the Store.
+ *        Right now, this takes care of instantiating Canvas and its Strokes 
+ *          and setting up all necessary relationships,
+ *          but perhaps Stroke instantiation (and DOM appending) should be delegated by the Canvas 
+ *       
+ *        @param {Object} - the canvas JSON (or POJO with a unique id key)
+ *        @return {Canvas}
+ *        @api public
+ *
+ *   @function init
+ *      Ensures the browser supports this form of storage
+ *      Asks the store for all of the known canvases for the user
+ *      Emits a "Store.Canvas.found" event for each Canvas JSON discovered
+ *      
+ *      @return void
+ *      @api public
+ *
+ * @end
+ *
+ * They should also listen to "Canvas.*.commit" events and handle persisting changes accordingly.
+ *
+ * Everything else below here is just some kind of helper method that needed a home
+ */
+whiteboard.Store = (function(_){
+
+  return {
+    /**
+     * Called on whiteboard.init()
+     * Takes care of initializing all Stores
+     */
+    init: function() {
+      _.initSubmodules.apply(this);
+    },
+
+    /**
+     * Some helpers stolen from underscore
+     */
+    clone: function(obj){
+      if (typeof obj !== 'object') {
+        return obj;
+      } else if (this.isArray(obj)) {
+        return obj.slice();
+      } else {
+        var clone = {};
+        for (var prop in obj) {
+          if (obj.hasOwnProperty(prop))
+            clone[prop] = obj[prop];
+        }
+        return clone;
+     }
+
+    },
+    isArray: function(obj) {
+      return toString.call(obj) == '[object Array]';
+    }
+  }
 })(whiteboard);
 
 whiteboard.Stroke = (function(_){
@@ -603,19 +777,24 @@ whiteboard.Stroke = (function(_){
       stroke.innerHTML = brush.template.innerHTML;
     
       stroke.style.position = 'absolute';
-      stroke.className = "stroke";
+      stroke.addClass("stroke");
       stroke.style.top = _.mouseY + "px";
       stroke.style.left = _.mouseX + "px";
       stroke.id = brush.name + "#" + (new Date()).toJSON();
 
       stroke.brush = brush;
 
-      _.htmlTag.appendChild(stroke);
+      var strokeContainer = document.createElement("div");
+      strokeContainer.addClass("stroke-container");
+      strokeContainer.appendChild(stroke);
+      _.container.appendChild(strokeContainer);
       _.Stroke.includedBy(stroke);
       _initializeActionListeners.call(stroke);
 
       _.emit("Stroke.create.commit", {
           target: stroke,
+          stroke: stroke,
+          module: "Stroke",
           action: 'create',
           step: 'commit'
       });
@@ -623,6 +802,18 @@ whiteboard.Stroke = (function(_){
       _.StrokeAction.focus.invoke({currentTarget: stroke, target: stroke});      
       return stroke;
 
+    },
+    load: function(json) {
+      var strokeContainer = document.createElement('div');
+      strokeContainer.addClass("stroke-container");
+      strokeContainer.innerHTML = json.html;
+      document.body.appendChild(strokeContainer);
+      var stroke = strokeContainer.children[strokeContainer.children.length - 1];
+      
+      stroke.brush = _.Brush.get(stroke.id.split('#')[0]);
+      _.Stroke.includedBy(stroke);
+      _initializeActionListeners.call(stroke);
+      return stroke;
     }
   };
 
@@ -714,6 +905,26 @@ whiteboard.Stroke = (function(_){
     },
 
     /**
+     * Returns the container element holding this stroke
+     *
+     * @return {HTMLElement}
+     * @api public
+     */
+    container: function() {
+      return this.parentElement;
+    },
+
+    /**
+     * Remove the stroke from the DOM
+     *
+     * @return {Stroke}
+     * @api public
+     */
+    removeFromDOM: function() {
+      _.container.removeChild(this.container());
+    },
+
+    /**
      * Serialize the stroke for persistence
      * Avoiding premature optimization by just storing the HTML for now.
      * TODO: find a better way to serialize a stroke
@@ -721,7 +932,7 @@ whiteboard.Stroke = (function(_){
      * @return {Object}
      * @api public
      */
-    serialize: function() {
+    toJSON: function() {
       return {
         id: this.id,
         brush: this.brush.name,
@@ -745,8 +956,10 @@ whiteboard.StrokeAction = (function(_){
     off: function(event, fn) {
       return _.off(module + "." + event, fn);
     },
-    emit: function(event) {
-      return _.emit(module + "." + event);
+    emit: function(eventName, event) {
+      eventName = module + "." + eventName;
+      event.module = module;
+      return _.emit(eventName, event);
     },
     
     /**
@@ -770,9 +983,10 @@ whiteboard.StrokeAction = (function(_){
         off: function(step, fn) {
           return _.off(module + "." + action + "." + step, fn);
         },
-        emit: function(step) {
-          arguments[0] = module + "." + action + "." + step;
-          return _.emit.apply(arguments[0], arguments);
+        emit: function(step, event) {
+          step = action + "." + step;
+          event.action = action;
+          return _.StrokeAction.emit(step, event);
         }
       };
 
@@ -785,12 +999,12 @@ whiteboard.StrokeAction = (function(_){
         strokeAction[step] = (function(step, fn){
           return  function(DOMevent){
             fn.apply(strokeAction, arguments);
-            strokeAction.emit.apply(strokeAction, [step, {
-              action: action,
+            strokeAction.emit(step, {
               step: step,
               e: DOMevent,
-              target: strokeAction.target
-            }]);
+              target: strokeAction.target,
+              stroke: _.StrokeAction.strokeForElement(strokeAction.target) 
+            });
           };
         })(step,steps[step]);
       }
@@ -915,7 +1129,7 @@ whiteboard.StrokeAction = (function(_){
         return _.StrokeAction.focusedStroke();
 
       var probe = element;
-      while (!probe.hasClass('stroke') && probe !== _.htmlTag)
+      while (!probe.hasClass('stroke') && probe !== _.container)
         probe = probe.parentElement;
 
       if (probe.hasClass('stroke'))
@@ -927,6 +1141,98 @@ whiteboard.StrokeAction = (function(_){
 
   };
 
+})(whiteboard);
+
+whiteboard.Store.Local = (function(_){
+  function _supportsLocalStorage() {
+    try {
+      return 'localStorage' in window && window.localStorage !== null;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function _handleCanvasEvent(event) {
+    if(event.action === 'create')
+      _saveCanvas(event.target.canvas)
+    else if (event.module === 'Canvas.strokes') {
+      localStorage[event.target.canvas.id] = JSON.stringify(event.target.canvas.toJSON());
+      if (event.action === 'destroy')
+        _destroyStroke(event.target.canvas, event.target.stroke);
+      else
+        _saveStroke(event.target.canvas, event.target.stroke);
+
+    }
+  };
+  
+  function _saveCanvas(canvas){
+    var json = canvas.toJSON(),
+    canvases = JSON.parse(localStorage['canvases']);
+    if (canvases.indexOf(canvas.id) < 0) {
+      canvases.push(canvas.id);
+      localStorage["canvases"] = JSON.stringify(canvases);
+    }
+    localStorage[canvas.id] = JSON.stringify(json);
+    for (var strokeId in canvas.strokes)
+      _saveStroke(canvas, canvas.strokes[strokeId]);
+  }
+
+  function _saveStroke(canvas, stroke) {
+   localStorage[canvas.id+'#'+stroke.id] = JSON.stringify(stroke.toJSON());
+  }
+
+  function _destroyStroke(canvas, stroke) {
+    delete localStorage[canvas.id+'#'+stroke.id];
+  }
+
+  function _emitCanvasFound() {
+    var canvases = JSON.parse(localStorage.canvases),
+        canvas;
+    for (var i = canvases.length - 1; i >= 0; i--) {
+      canvas = JSON.parse(localStorage[canvases[i]]);
+      _.emit("Store.Canvas.found", {
+          target: canvas,
+          source: _.Store.Local
+      });
+    }
+  };
+
+  /**
+   * Pulls a canvas out of localStorage
+   * Instantiates the Canvas object and its strokes
+   *
+   * @param {Object} the POJO of canvas attributes
+   * @return {Canvas}
+   * @api private
+   */
+  function _loadCanvas(json) {
+    var strokeJSON,
+        strokeIdArray = json.strokes;
+    json.strokes = {};
+    for (var i = strokeIdArray.length - 1; i >= 0; i--) {
+      strokeJSON = JSON.parse(localStorage[json.id+'#'+strokeIdArray[i]]);
+      json.strokes[strokeIdArray[i]] = _.Stroke.load(strokeJSON);
+    }
+    return new _.Canvas(json);
+  };
+
+  var Local = {
+    name: "LocalStorage",
+    load: function(canvas) {
+      _.off("Canvas.*.commit", _handleCanvasEvent);
+      var canvas = _loadCanvas(JSON.parse(localStorage[canvas.id]));
+      _.on("Canvas.*.commit", _handleCanvasEvent);
+      return canvas;
+    },
+    init: function() {
+      if (_supportsLocalStorage()) {
+        if(!localStorage.canvases) localStorage.canvases = JSON.stringify([]);
+        else _emitCanvasFound();
+        _.on("Canvas.*.commit", _handleCanvasEvent);
+      }
+    }
+  };
+  return Local;
 })(whiteboard);
 
 /**
@@ -959,7 +1265,7 @@ whiteboard.StrokeAction.destroy = (function(_,$){
       return false;
     },
     commit: function(event) {
-      _.htmlTag.removeChild(this.target);
+      this.target.removeFromDOM();
     }
   });
 
@@ -1056,8 +1362,8 @@ whiteboard.StrokeAction.move = (function(_,$){
     invoke: function(event, content, stroke) {
 			this.target = $.strokeForElement(event.target);
 
-      _.addEvent(_.htmlTag, 'mousemove', this.process);
-      _.addEvent(_.htmlTag, 'mouseup', this.commit);
+      _.addEvent(_.container, 'mousemove', this.process);
+      _.addEvent(_.container, 'mouseup', this.commit);
     },
 
     process: function(event) {
@@ -1066,8 +1372,8 @@ whiteboard.StrokeAction.move = (function(_,$){
     },
 
     commit: function(event) {
-      _.removeEvent(_.htmlTag, 'mouseup', this.commit);
-      _.removeEvent(_.htmlTag, 'mousemove', this.process);
+      _.removeEvent(_.container, 'mouseup', this.commit);
+      _.removeEvent(_.container, 'mousemove', this.process);
     }
   });
 })(whiteboard, whiteboard.StrokeAction);
@@ -1119,8 +1425,8 @@ whiteboard.StrokeAction.rotate = (function(_,$){
       invoke: function(event, content) {
         this.target = $.strokeForElement(event.target);
 
-        _.addEvent(_.htmlTag, 'mousemove', this.process);
-        _.addEvent(_.htmlTag, 'mouseup', this.commit);
+        _.addEvent(_.container, 'mousemove', this.process);
+        _.addEvent(_.container, 'mouseup', this.commit);
       },
 
       process: function(event) {
@@ -1141,8 +1447,8 @@ whiteboard.StrokeAction.rotate = (function(_,$){
       },
 
       commit: function(event) {
-        _.removeEvent(_.htmlTag, 'mousemove', this.process);
-        _.removeEvent(_.htmlTag, 'mouseup', this.commit);
+        _.removeEvent(_.container, 'mousemove', this.process);
+        _.removeEvent(_.container, 'mouseup', this.commit);
       }
     });
 })(whiteboard, whiteboard.StrokeAction);
