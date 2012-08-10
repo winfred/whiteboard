@@ -15,24 +15,24 @@ describe("whiteboard.Canvas", function() {
 
       });
 
-      describe(".list", function() {
+      describe(".all", function() {
         before(function(){
           _.Store.init();
         });
 
         it("is automatically updated as new Canvases are discovered by Stores", function() {
-          expect(Canvas.list).to.not.be.empty();
+          expect(Canvas.all).to.not.be.empty();
         });
 
         it("contains references to canvas wrappers", function() {
-          expect(Canvas.list[0]).to.have.property("source");
-          expect(Canvas.list[0]).to.have.property("target");
+          expect(Canvas.all[0]).to.have.property("source");
+          expect(Canvas.all[0]).to.have.property("target");
         });
 
         describe("Canvas Wrapper interface to Store", function() {
           var canvas;
           before(function() {
-            canvas = Canvas.list[0];
+            canvas = Canvas.all[0];
           });
 
           describe("#source", function() {
