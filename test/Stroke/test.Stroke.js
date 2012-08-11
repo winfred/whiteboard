@@ -11,7 +11,7 @@ describe("Stroke", function() {
 
   describe(".create", function() {
     it("focuses the recently created stroke", function() {
-      var stroke = _.Stroke.create(_.Brush.get('arrow'));
+      var stroke = _.Stroke.create({brush: _.Brush.get('arrow')});
       expect(stroke.hasClass('whiteboard-focused')).to.be(true);
       stroke.removeFromDOM();
     });
@@ -24,7 +24,7 @@ describe("Stroke", function() {
         handlerCalled = true;
         module = event.module;
       });
-      stroke = _.Stroke.create(_.Brush.get('arrow'));
+      stroke = _.Stroke.create({brush: _.Brush.get('arrow')});
       expect(handlerCalled).to.be(true);
       expect(module).to.be("Stroke");
       stroke.removeFromDOM();
