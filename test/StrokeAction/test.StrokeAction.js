@@ -3,10 +3,16 @@ describe("whiteboard.StrokeAction", function() {
       _$ = whiteboard.StrokeAction;
 
   describe("#extend", function() {
-    var myStrokeAction = _$.extend('myStrokeAction', {
-      actionOne: function(){
-        return true;
-      }
+    var myStrokeAction;
+
+    before(function() {
+      myStrokeAction = _$.extend('myStrokeAction', {
+        invoke: function() {
+        },
+        actionOne: function(){
+          return true;
+        }
+      });
     });
 
     it("wraps event emitters around all action steps", function() {
@@ -41,6 +47,17 @@ describe("whiteboard.StrokeAction", function() {
       myStrokeAction.emit('actionOne', {});
       expect(handlerCalled).to.be(false);
 
+    });
+    it("provides a default commit function if none is provided, reducing boilerplate", function() {
+      expect(myStrokeAction.commit).to.be.a('function');
+    });
+
+    it("throws an error if the provided steps don't include 'invoke'", function(){
+      expect(function(){
+        _$.extend('BARKBARKBARK',{
+            notInvoke: 'fuuuu'
+        });
+      }).to.throwException();
     });
   });
 });
