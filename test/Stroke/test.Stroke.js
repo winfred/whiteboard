@@ -1,33 +1,36 @@
 describe("Stroke", function() {
   var _ = whiteboard;
-  describe(".includedBy", function() {
-    it("attaches Stroke module functions to the provided object", function() {
-      var stroke = _.test.helpers.paintStroke();
-      _.Stroke.includedBy(stroke);
-      expect(typeof stroke.toJSON).to.be('function');
-      stroke.removeFromDOM();
-    });
-  });
+  describe("module", function() {
 
-  describe(".create", function() {
-    it("focuses the recently created stroke", function() {
-      var stroke = _.Stroke.create({brush: _.Brush.get('arrow')});
-      expect(stroke.hasClass('whiteboard-focused')).to.be(true);
-      stroke.removeFromDOM();
-    });
-
-    it("emits a Stroke.create.commit event", function() {
-      var handlerCalled = false,
-          stroke,
-          module = "";
-      _.on("Stroke.create.commit", function(event) {
-        handlerCalled = true;
-        module = event.module;
+    describe(".includedBy", function() {
+      it("attaches Stroke module functions to the provided object", function() {
+        var stroke = _.test.helpers.paintStroke();
+        _.Stroke.includedBy(stroke);
+        expect(typeof stroke.toJSON).to.be('function');
+        stroke.removeFromDOM();
       });
-      stroke = _.Stroke.create({brush: _.Brush.get('arrow')});
-      expect(handlerCalled).to.be(true);
-      expect(module).to.be("Stroke");
-      stroke.removeFromDOM();
+    });
+
+    describe(".create", function() {
+      it("focuses the recently created stroke", function() {
+        var stroke = _.Stroke.create({brush: _.Brush.get('arrow')});
+        expect(stroke.hasClass('whiteboard-focused')).to.be(true);
+        stroke.removeFromDOM();
+      });
+
+      it("emits a Stroke.create.commit event", function() {
+        var handlerCalled = false,
+            stroke,
+            module = "";
+        _.on("Stroke.create.commit", function(event) {
+          handlerCalled = true;
+          module = event.module;
+        });
+        stroke = _.Stroke.create({brush: _.Brush.get('arrow')});
+        expect(handlerCalled).to.be(true);
+        expect(module).to.be("Stroke");
+        stroke.removeFromDOM();
+      });
     });
   });
   describe("#toJSON", function(){
