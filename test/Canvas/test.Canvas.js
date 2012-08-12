@@ -62,7 +62,7 @@ describe("Canvas", function() {
         it("adds/updates strokes on StrokeAction|Stroke.*.commit events", function() {
 					var stroke =  _.test.helpers.paintStroke();
           _.emit("StrokeAction.hey.commit", {target: stroke, stroke: stroke});
-          expect(Canvas.active.strokes[stroke.id].id).to.be(stroke.id);
+          expect(Canvas.active.strokes[stroke.strokeId].strokeId).to.be(stroke.strokeId);
         });
 
       });

@@ -13,17 +13,17 @@ describe("Store.Local", function() {
 
     it("stores strokes by id as serialized html objects", function() {
       var stroke = _.test.helpers.paintStroke();
-      expect(localStorage[_.Canvas.active.id + "#" + stroke.id]).to.be.ok();
+      expect(localStorage[_.Canvas.active.id + "#" + stroke.strokeId]).to.be.ok();
     });
 
     it("deletes strokes from storage when they are destroyed", function() {
 
       var stroke = _.test.helpers.paintStroke();
       _.StrokeAction.destroy.invoke({target: stroke});
-      var strokeJson = localStorage[_.Canvas.active.id+"#"+stroke.id];
+      var strokeJson = localStorage[_.Canvas.active.id+"#"+stroke.strokeId];
       expect(strokeJson).to.be(undefined);
       var canvasJson = JSON.parse(localStorage[_.Canvas.active.id]);
-      expect(canvasJson.strokes).to.not.contain(stroke.id);
+      expect(canvasJson.strokes).to.not.contain(stroke.strokeId);
       
     });
   });
