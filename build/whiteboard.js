@@ -324,7 +324,7 @@ window.whiteboard = (function(){
 
       _.addEvent(document, 'mousemove', _updateMousePosition);
 
-      this.container = opts.container || document.getElementsByTagName('html')[0];
+			this.container = opts.container || document.body;
 
       return this;
     }
@@ -350,9 +350,6 @@ whiteboard.Brush = (function(_){
   Brush = function(template, name){
     this.template = template;
     this.name = name;
-    var onpaint = template.attributes.getNamedItem('data-onpaint');
-    if (onpaint)
-      this.onpaint = onpaint.value.split(', ');
   };
 
   /**
@@ -412,7 +409,6 @@ whiteboard.Brush = (function(_){
     return _brushes[name];
   };
 
-
   /**
    * ----------------
    * Instance Methods
@@ -426,18 +422,21 @@ whiteboard.Brush = (function(_){
    * @returns {Stroke} newly painted stroke 
    */
   Brush.prototype.paintStroke = function(stroke) {
-    if (!stroke) {
-      stroke = _.Stroke.create(this);
+    if (stroke) {
+      stroke = _.Stroke.create({json: stroke});
     } else {
-      _.container.appendChild(stroke);
+      stroke = _.Stroke.create({brush: this});
     }
+    _.emit("Brush."+this.name+".paint.commit", {
+        module: "Brush",
+        action: "paint",
+        step: "commit",
+        stroke: stroke,
+        brush: this
+    });
 
-
-    //TODO: trigger any onpaint events?
-
-		return stroke; 
+    return stroke; 
   };
-
 
   /**
    * ---------------
@@ -555,7 +554,7 @@ whiteboard.Canvas = (function(_){
     },
     createOrUpdateStroke: function(stroke) {
      var strokeExists = this.strokes.hasOwnProperty(stroke.id);
-     this.strokes[stroke.id] = stroke;
+     this.strokes[stroke.strokeId] = stroke;
 
      if (strokeExists) {
        _.emit('Canvas.strokes.update.commit', _buildStrokesEvent.call(this,stroke, 'update'));
@@ -568,7 +567,7 @@ whiteboard.Canvas = (function(_){
         return;
 
       if (event.action === 'destroy') {
-        delete this.strokes[event.stroke.id];
+        delete this.strokes[event.stroke.strokeId];
         _.emit('Canvas.strokes.destroy.commit', _buildStrokesEvent.call(this, event.stroke, 'destroy'));
       } else {
         this.createOrUpdateStroke(event.stroke);
@@ -750,11 +749,19 @@ whiteboard.Store = (function(_){
   }
 })(whiteboard);
 
-whiteboard.Stroke = (function(_){
 
-  var Stroke = {
+whiteboard.Stroke = (function(_){
+  var _idSplitter = '...',
+      _idCounter = 0,
+      Stroke;
+
+  function _nextId() {
+    return "stroke"+_idCounter++;
+  };
+
+  Stroke = {
     includedBy: function(stroke) {
-      stroke.whiteboard = {};
+      stroke.serializable = {};
       for (var fnName in Stroke.prototype) {
         stroke[fnName] = (function(stroke, fnName){
           return function() {
@@ -763,65 +770,96 @@ whiteboard.Stroke = (function(_){
         })(stroke, fnName);
       }
     },
+
+    /**
+     * A painter-helper
+     * Just asks the serialized stroke's brush to paint with JSON
+     *
+     * @param {Object} - the JSON format of a stroke
+     * @return{Stroke} 
+     * @api public
+     */
+    paint: function(strokeJSON) {
+      return _.Brush.get(strokeJSON.brush).paintStroke(strokeJSON);
+    },
+
     /**
      * Initialize a new HTMLElement(stroke) 
      *  append it to the DOM
-     *  and set it as the focused stroke
-     * 
-     * @param {Brush}
+     *
+     * @param {Object} opts
+     *    if opts.brush is provided, a new stroke is created with that brush
+     *    if opts.json is provided, a new stroke is loaded from that json
+     *
      * @return {HTMLElement}
      * @api public
      */
-    create: function(brush) {
-      var stroke = document.createElement('div');
-      stroke.innerHTML = brush.template.innerHTML;
-    
-      stroke.style.position = 'absolute';
-      stroke.addClass("stroke");
-      stroke.style.top = _.mouseY + "px";
-      stroke.style.left = _.mouseX + "px";
-      stroke.id = brush.name + "#" + (new Date()).toJSON();
-
-      stroke.brush = brush;
-
-      var strokeContainer = document.createElement("div");
-      strokeContainer.addClass("stroke-container");
-      strokeContainer.appendChild(stroke);
-      _.container.appendChild(strokeContainer);
-      _.Stroke.includedBy(stroke);
-      _initializeActionListeners.call(stroke);
-
-      _.emit("Stroke.create.commit", {
-          target: stroke,
-          stroke: stroke,
-          module: "Stroke",
-          action: 'create',
-          step: 'commit'
-      });
-
-      _.StrokeAction.focus.invoke({currentTarget: stroke, target: stroke});      
-      return stroke;
-
-    },
-    load: function(json) {
-      var strokeContainer = document.createElement('div');
-      strokeContainer.addClass("stroke-container");
-      strokeContainer.innerHTML = json.html;
-      _.container.appendChild(strokeContainer);
-      var stroke = strokeContainer.children[strokeContainer.children.length - 1];
+    create: function(opts) {
+      var stroke;
+      if (opts.brush) {
+        stroke = document.createElement('div');
+        stroke.innerHTML = opts.brush.template.innerHTML;
       
-      stroke.brush = _.Brush.get(stroke.id.split('#')[0]);
-      _.Stroke.includedBy(stroke);
-      _initializeActionListeners.call(stroke);
+        stroke.style.position = 'absolute';
+        stroke.addClass("stroke");
+        stroke.style.top = _.mouseY + "px";
+        stroke.style.left = _.mouseX + "px";
+        stroke.strokeId = opts.brush.name + _idSplitter + (new Date()).toJSON();
+
+        stroke.brush = opts.brush;
+      } else {
+        var strokeContainer = document.createElement('div');
+            strokeContainer.innerHTML = opts.json.html;
+        stroke = strokeContainer.children[0];
+        stroke.strokeId = opts.json.id;
+        stroke.brush = _.Brush.get(opts.json.brush);
+      }
+      stroke.id = _nextId();
+
+      _paint(stroke);
+
+      if (opts.brush){
+        _.StrokeAction.focus.invoke({currentTarget: stroke, target: stroke});      
+        _.emit("Stroke.create.commit", {
+            target: stroke,
+            stroke: stroke,
+            module: "Stroke",
+            action: 'create',
+            step: 'commit'
+        });
+      }
       return stroke;
-    }
+    },
+    /**
+     * Framework consumers will define their custom attributes as POJOs that know how to 
+     * @function toJSON -> serialize the stroke.serializable[attribute] POJO into JSON
+     * @function load -> unserialize the provided JSON and attach it to stroke.serializable[attribute]
+     *
+     */
+    attributes: {}
   };
+
 
   /**
    *  -----------------
    *  Private Functions
    *  -----------------
    */
+
+
+  /**
+   * Prepare and paint an HTMLElement stroke
+   * Fires all onpaint functions accordingly
+   *
+   * @param {HTMLElement} stroke
+   * @return void
+   * @api private
+   */
+  function _paint(stroke) {
+    _.container.appendChild(stroke);
+    _.Stroke.includedBy(stroke);
+    _initializeActionListeners.call(stroke);
+  };
 
   /**
    * Bind all of a stroke's whiteboard-actionable events to their elements
@@ -921,7 +959,7 @@ whiteboard.Stroke = (function(_){
      * @api public
      */
     removeFromDOM: function() {
-      _.container.removeChild(this.container());
+      _.container.removeChild(this);
     },
 
     /**
@@ -933,11 +971,16 @@ whiteboard.Stroke = (function(_){
      * @api public
      */
     toJSON: function() {
-      return {
-        id: this.id,
+      var json = {
+        id: this.strokeId,
         brush: this.brush.name,
         html: this.whiteboardHTML()
-      }
+      };
+
+      for (var attribute in  this.serializable)
+        json[attribute] = Stroke.attributes[attribute].toJSON.call(this.serializable[attribute]);
+
+      return json;
     }
   };
   return Stroke;
@@ -989,7 +1032,10 @@ whiteboard.StrokeAction = (function(_){
           return _.StrokeAction.emit(step, event);
         }
       };
-
+      if (!steps.invoke)
+        throw "You extended StrokeAction and didn't implement invoke... remember to set the action's target therein"
+      
+      steps.commit = steps.commit || function(){};
       for(var step in steps) {
         /**
          * This is where the actions steps are wrapped with event emission.
@@ -1001,9 +1047,9 @@ whiteboard.StrokeAction = (function(_){
             fn.apply(strokeAction, arguments);
             strokeAction.emit(step, {
               step: step,
-              e: DOMevent,
+              data: DOMevent,
               target: strokeAction.target,
-              stroke: _.StrokeAction.strokeForElement(strokeAction.target) 
+              stroke: strokeAction.stroke || _.StrokeAction.strokeForElement(strokeAction.target) 
             });
           };
         })(step,steps[step]);
@@ -1158,9 +1204,9 @@ whiteboard.Store.Local = (function(_){
     else if (event.module === 'Canvas.strokes') {
       localStorage[event.target.canvas.id] = JSON.stringify(event.target.canvas.toJSON());
       if (event.action === 'destroy')
-        _destroyStroke(event.target.canvas, event.target.stroke);
+        _destroyStroke(event.target.canvas, event.target.stroke.toJSON());
       else
-        _saveStroke(event.target.canvas, event.target.stroke);
+        _saveStroke(event.target.canvas, event.target.stroke.toJSON());
 
     }
   };
@@ -1174,15 +1220,31 @@ whiteboard.Store.Local = (function(_){
     }
     localStorage[canvas.id] = JSON.stringify(json);
     for (var strokeId in canvas.strokes)
-      _saveStroke(canvas, canvas.strokes[strokeId]);
+      _saveStroke(canvas, canvas.strokes[strokeId].toJSON());
   }
 
+  /**
+   * Save a stroke's JSON data into the proper key
+   *
+   * @param {Canvas} - the Canvas for this stroke
+   * @param {Object} - the stroke's toJSON format
+   * @return void
+   * @api private
+   */
   function _saveStroke(canvas, stroke) {
-   localStorage[canvas.id+'#'+stroke.id] = JSON.stringify(stroke.toJSON());
+    localStorage[canvas.id+'#'+stroke.id] = JSON.stringify(stroke);
   }
 
+ /**
+  * Delete a stroke from localStorage
+  *
+  * @param {Canvas} - the canvas for this stroke
+  * @param {Object} - the stroke's toJSON format POJO
+  * @return void
+  * @api private
+  */
   function _destroyStroke(canvas, stroke) {
-    delete localStorage[canvas.id+'#'+stroke.id];
+   delete localStorage[canvas.id+'#'+stroke.id];
   }
 
   function _emitCanvasFound() {
@@ -1211,7 +1273,7 @@ whiteboard.Store.Local = (function(_){
     json.strokes = {};
     for (var i = strokeIdArray.length - 1; i >= 0; i--) {
       strokeJSON = JSON.parse(localStorage[json.id+'#'+strokeIdArray[i]]);
-      json.strokes[strokeIdArray[i]] = _.Stroke.load(strokeJSON);
+      json.strokes[strokeIdArray[i]] = _.Stroke.paint(strokeJSON);
     }
     return new _.Canvas(json);
   };
@@ -1469,7 +1531,8 @@ whiteboard.StrokeAction.unfocus = (function(_,$){
     },
 
     process: function(event) {
-      if (!event.target.isContainedInElementOfClass('whiteboard-focused'))
+      if (event.target.isContainedInElementOfClass &&
+         !event.target.isContainedInElementOfClass('whiteboard-focused'))
         this.commit();
     },
 

@@ -9,9 +9,7 @@ html, body {
 }
 
 .resizeable {
-  resize: both;
   overflow: hidden;
-  resize: both;
   min-width: 10px;
   min-height: 10px;
   max-width: 400px;
@@ -67,6 +65,10 @@ html, body {
 
 }
 
+.container {
+	padding: 50px;
+}
+
 .uml-class {
   background: white solid;
   border: 2px #999 solid;
@@ -79,4 +81,10 @@ html, body {
 
 .uml-class-attributes {
   border-bottom: 2px #999 solid;
+}
+
+.plumbing-endpoint {
+	width: 10px;
+	height: 10px;
+	background-color: green;
 }

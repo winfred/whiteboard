@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>jsPlumb Sandbox</title>
+  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.13/jquery-ui.min.js"></script>
+	<script type="text/javascript" src="vendor/jquery.jsPlumb-1.3.11-all.js"></script>
+		<link rel="stylesheet" type="text/css" href="css/whiteboard.css">
+  <script type="text/javascript" src="build/whiteboard.js"></script>
+
+
+</head>
+<body>
+	 <div class="container">
+		 <h1>Whiteboard JS</h1>
+		 <p>A small framework agnostic library for building whiteboard applications. (alpha)</p>
+		 <h2>About</h2>
+		 <p>This is totally a work in progress, "spare time" project, for now at least</p>
+		 <p>This is just a bare-bones demo with no documentation. Use <a href="http://github.com/wnadeau/whiteboard" target="_blank">the source</a> (github) for documentation until then.</p>
+		<div>
+		<h3>Saved Whiteboards</h3>
+		<div class="canvas-list">
+			<ul><li>None. (Paint some elements and refresh the page.)</li></ul>
+		</div>
+	</div>
+	<div>
+		<h3>Brushes</h3>
+    <div class="toolbox">
+      <ul>
+        <li> <a href="#" class="tool" data-brush-name="uml-class">UML Class</a> </li>
+        <li><a href="#" class="tool" data-brush-name="text">Text</a></li>
+        <li><a href="#" class="tool" data-brush-name="arrow">Arrow</a></li>
+      </ul>
+    </div>
+	</div>
+	<hr />
+	 <h2>Features</h2>
+	 <p>Define brushes in HTML/CSS</p>
+	 <p>Implement custom stroke actions in Javascript</p>
+	 <p>localStorage adapter for quick solo use</p>
+	 <p>TODO: WebSocket adapter to support collaboration</p>
+  </div>
+  <div class="brushes">
+    <div class="brush" data-brush-name="uml-class">
+      <div class="stroke-content">
+        <div class="uml-class">
+          <div class="uml-class-header">
+            <h3 class="whiteboard-actionable editable" data-action="editText" data-trigger="mousedown">Class Name</h3>
+          </div>
+          <div class="uml-class-attributes">
+            <p class="whiteboard-actionable editable" data-action="editText" data-trigger="mousedown">
+              - attribute1 <br />
+              + attribute2
+            </p>
+          </div>
+          <div class="uml-class-methods">
+            <p class="whiteboard-actionable editable" data-action="editText" data-trigger="mousedown">
+              - method1 <br />
+              + method2
+            </p>
+          </div>
+        </div>
+	   	</div>
+      <div class="stroke-controls stroke-controls-top">
+          <a href="#" class="move-handle" >Drag Me</a>
+					<a href="#" class="whiteboard-actionable" data-action="destroy" data-trigger="mousedown">X</a>
+      </div>
+    </div>
+    <div class="brush" data-brush-name="text" data-onpaint="focusEditableText">
+      <div class="stroke-controls stroke-controls-top">
+        <a href="#" class="whiteboard-actionable" data-action="increaseFontSize" data-trigger="mousedown">+</a>
+        <a href="#" class="whiteboard-actionable" data-action="decreaseFontSize" data-trigger="mousedown">-</a>
+        <div class="stroke-controls-right">
+          <a href="#" class="whiteboard-actionable" data-action="rotate" data-trigger="mousedown">Ω</a>
+        </div>
+      </div>
+        <div class="stroke-content" data-default-fontsize="16">
+          <h3 class="whiteboard-actionable editable resizeable" data-action="editText" data-trigger="mousedown">Write here...</h3>
+        </div>
+      <div class="stroke-controls stroke-bottom">
+        <a href="#" class="move-handle" >Drag Me</a>
+				<a href="#" class="whiteboard-actionable" data-action="destroy" data-trigger="mousedown">X</a>
+
+      </div>
+    </div>
+    <div class="brush" data-brush-name="arrow">
+        <div class="stroke-content ">
+          <img src="Arrow_east.svg"  class="resizeable" alt="arrow" width="100"/>
+        </div>
+      <div class="stroke-controls">
+          <a href="#" class="move-handle" >Drag Me</a>
+          <div class="stroke-controls-right">
+            <a href="#" class="whiteboard-actionable" data-action="rotate" data-trigger="mousedown">Ω</a>
+						<a href="#" class="whiteboard-actionable" data-action="destroy" data-trigger="mousedown">X</a>
+
+          </div>
+      </div>
+    </div>
+  </div>
+<script type="text/javascript">
+  whiteboard.init();
+	/**
+	 * Brush fuckery
+	 */
+	jsPlumb.Defaults.Container = $('body');
+	(function(){
+		var _ = this;
+		this.StrokeAction.move = this.StrokeAction.extend('move',{
+				invoke: function(e, ui) {
+					this.target = e.target;
+				}
+		});
+		this.on("Brush.*.paint.commit", function(event){
+			event.stroke.removeClass('ui-draggable-dragging');
+			event.stroke.removeClass('ui-draggable');
+
+			jsPlumb.draggable(event.stroke,{
+					handle: '.move-handle',
+					start: _.StrokeAction.move.invoke,
+					stop: _.StrokeAction.move.commit
+			});
+		});
+
+    /**
+     * this == the attribute hash
+     */
+    this.Stroke.attributes.plumbing = {
+      toJSON: function() {
+        //TODO: figure out how to serialize this.connection
+        // What is inside of this.connection?
+        var connections = [];
+        for (var id in this.connections) { 
+          connections.push({
+              source: this.connections[id].endpoints[0].anchor.elementId,
+              target: this.connections[id].endpoints[1].anchor.elementId
+          });
+        }
+        return connections;
+      },
+      load: function(json) {
+        //TODO: figure out how to de-serialize this.connection
+        //can we build this.connection out of json param?
+        var connection, i;
+        for (i = json.connections.length- 1; i >= 0; i--) {
+          connection = json.connections[i];
+          connection = jsPlumb.connect({
+              source: connection.source,
+              target: connection.target
+          }, connection.options);
+          this.connections[connection.id] = connection;
+        }
+          
+      }
+    };
+
+		this.StrokeAction.plumb = this.StrokeAction.extend('plumb', {
+				invoke: function(e) {
+          this.target = e.sourceEndpoint.canvas;
+          this.stroke = _.StrokeAction.strokeForElement(this.target);
+          this.stroke.serializable.plumbing.connections[e.connection.id] = e.connection;
+          this.commit(e);
+				}
+		});
+
+    this.StrokeAction.unplumb = this.StrokeAction.extend("unplumb", {
+        invoke: function(e){
+          this.target = e.target[0];
+          this.stroke = _.StrokeAction.strokeForElement(this.target);
+          delete this.stroke.serializable.plumbing.connections[e.connection.id];
+          this.commit(e);
+        }
+    });
+
+		this.on("Brush.uml-class.paint.commit", function(event) {
+      event.stroke.serializable.plumbing = {};
+      event.stroke.serializable.plumbing.connections = {}; 
+			$(event.stroke.getElementsByClassName('plumbing-endpoint')).each(function() {
+
+				var endpointOptions = { 
+					isSource: true,
+					isTarget:true, 
+					deleteEndpointsOnDetach:false,
+					connectionsDetachable: true,
+					endpoint:"Rectangle", 
+					paintStyle:{ fillStyle:"gray" } 
+				};
+				jsPlumb.makeSource($(this),endpointOptions);
+				jsPlumb.makeTarget($(this),endpointOptions);
+        jsPlumb.bind("jsPlumbConnection", _.StrokeAction.plumb.invoke);
+        jsPlumb.bind("jsPlumbConnectionDetached", _.StrokeAction.unplumb.invoke);
+			});
+		});
+
+    this.on("StrokeAction.(un)?plumb.commit", function(e) {
+			console.log("plumbed", e);
+		});
+	}).call(whiteboard);
+
+</script>
+
+</body>
+
+
+</html>
+
